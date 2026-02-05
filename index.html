@@ -3,97 +3,106 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>連線中...</title>
+  <title>會員驗證</title>
   <script src="https://static.line-scdn.net/liff/2.22.1/sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; text-align: center; padding-top: 20%; background-color: #f5f5f5; color: #555; }
+    body { font-family: 'Noto Sans TC', sans-serif; text-align: center; padding: 40px 20px; background-color: #ffffff; color: #333; }
+    
+    /* 載入動畫 */
     .loader { border: 4px solid #f3f3f3; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* 隱藏區塊 */
+    .hidden { display: none; }
+
+    /* 成功區塊 */
+    #success-area { margin-top: 20px; animation: fadeIn 0.5s; }
+    .icon-circle { width: 80px; height: 80px; background: #06c755; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 4px 15px rgba(6, 199, 85, 0.3); }
+    .check-icon { color: white; font-size: 40px; font-weight: bold; }
     
-    /* 卡住時顯示的救援區塊 */
-    #stuck-help { display: none; margin-top: 30px; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .btn-retry { background: #06c755; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-size: 16px; cursor: pointer; margin-top: 10px; }
-    .btn-close { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    h2 { margin: 0 0 10px 0; color: #333; }
+    p { color: #666; font-size: 14px; margin-bottom: 30px; }
+
+    /* 進入按鈕 */
+    .btn-enter { 
+      background: #06c755; color: white; 
+      border: none; padding: 15px 40px; 
+      border-radius: 50px; font-size: 18px; font-weight: bold; 
+      cursor: pointer; width: 100%; max-width: 280px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.1s;
+    }
+    .btn-enter:active { transform: scale(0.98); background: #05b34c; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <div class="loader" id="loading-spinner"></div>
-  <h3 id="title-text">正在讀取資料...</h3>
-  <div id="status">驗證身分中 (v5.0)</div>
 
-  <div id="stuck-help">
-    <p style="color:red; font-weight:bold;">⚠️ 連線似乎卡住了</p>
-    <p style="font-size:14px; text-align:left;">
-      如果這是在「授權同意」後發生的，<br>
-      請嘗試以下操作：
-    </p>
-    <button class="btn-retry" onclick="forceReload()">🔄 點我強制重整</button>
-    <br><br>
-    <p style="font-size:12px; color:#999;">如果重整無效，請點擊下方按鈕關閉視窗，再重新進入即可。</p>
-    <button class="btn-close" onclick="liff.closeWindow()">❌ 關閉視窗</button>
+  <div id="loading-area">
+    <div class="loader"></div>
+    <div id="status-text" style="color:#888; font-size:14px;">正在安全驗證身分...</div>
+  </div>
+
+  <div id="success-area" class="hidden">
+    <div class="icon-circle">
+      <div class="check-icon">✓</div>
+    </div>
+    <h2>驗證成功</h2>
+    <p>Hi, <span id="user-name">朋友</span><br>您的身分已確認，請點擊下方按鈕。</p>
+    
+    <button class="btn-enter" onclick="enterSystem()">進入預約系統</button>
   </div>
 
   <script>
     const MY_LIFF_ID = "2009054335-tUPGk28q";
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    // ★★★ 設定 5 秒超時偵測 ★★★
-    // 如果 5 秒後還沒成功跳轉，就顯示救援區塊
-    const stuckTimer = setTimeout(() => {
-      document.getElementById('stuck-help').style.display = 'block';
-      document.getElementById('status').innerText = "系統回應逾時";
-      document.getElementById('loading-spinner').style.display = 'none';
-    }, 5000);
+    // 用來儲存最終要跳轉的網址
+    let finalTargetUrl = "";
 
     window.onload = function() {
-      loadSDK();
-    };
-
-    function loadSDK() {
+      // 載入 LIFF SDK
       var script = document.createElement('script');
       script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
       script.async = true;
       script.onload = initLiff;
       document.head.appendChild(script);
-    }
+    };
 
     async function initLiff() {
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
-        // 登入判斷
+        // 登入檢查
         if (!liff.isLoggedIn()) {
-          document.getElementById('status').innerText = "請求授權中...";
-          
-          // ★★★ 優化：加上時間戳記，避免 Android 吃到壞掉的快取 ★★★
-          let cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-          let freshUrl = cleanUrl + "?t=" + new Date().getTime(); 
-          
+          document.getElementById('status-text').innerText = "請求授權中...";
+          // 加上時間戳記強制重整，避免 Android 緩存問題
+          let freshUrl = window.location.href.split('?')[0] + "?t=" + new Date().getTime();
           liff.login({ redirectUri: freshUrl });
           return;
         }
 
-        // 成功登入
-        clearTimeout(stuckTimer); // 清除超時計時器
-        
+        // 取得資料
         const profile = await liff.getProfile();
         const userId = profile.userId;
         const displayName = profile.displayName;
 
-        document.getElementById('status').innerText = "驗證成功，進入系統...";
-
+        // 準備目標網址
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
+        
+        // 組合網址 (記得只傳名字，不傳照片以防 Android 404)
+        finalTargetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        // 跳轉
-        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
-        window.location.replace(targetUrl);
+        // 更新 UI：顯示成功畫面
+        showSuccessUI(displayName);
 
       } catch (err) {
-        // Token 失效自動修復
+        // Token 自動修復機制
         var errMsg = err.message.toLowerCase();
-        if (errMsg.includes("access token revoked") || errMsg.includes("token")) {
-            document.getElementById('status').innerText = "正在重置連線...";
+        if (errMsg.includes("token")) {
             if (liff.isLoggedIn()) liff.logout();
             setTimeout(() => { window.location.reload(); }, 500);
             return;
@@ -102,9 +111,24 @@
       }
     }
 
-    // 強制重整功能
-    function forceReload() {
-      window.location.href = window.location.href.split('?')[0] + "?t=" + new Date().getTime();
+    function showSuccessUI(name) {
+      // 隱藏讀取動畫，顯示成功區塊
+      document.getElementById('loading-area').classList.add('hidden');
+      document.getElementById('success-area').classList.remove('hidden');
+      document.getElementById('user-name').innerText = name;
+    }
+
+    // 使用者手動點擊後觸發，這是最穩定的跳轉方式
+    function enterSystem() {
+      if(!finalTargetUrl) return;
+      
+      // 按鈕變更狀態，讓使用者知道有點到
+      const btn = document.querySelector('.btn-enter');
+      btn.innerText = "正在進入...";
+      btn.style.opacity = "0.8";
+      
+      // 執行跳轉
+      window.location.replace(finalTargetUrl);
     }
   </script>
 </body>
