@@ -3,88 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>連線中...</title>
+  <title>連線診斷</title>
+  <script src="https://static.line-scdn.net/liff/2.22.1/sdk.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; padding-top: 20%; color: #555; background-color: #fafafa; }
-    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    #status { font-size: 14px; margin-top: 10px; }
-    #error-box { color: red; margin-top: 20px; font-size: 12px; display: none; padding: 20px; word-break: break-all; }
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f4; text-align: center; }
+    .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: left; word-break: break-all; }
+    h3 { margin-top: 0; color: #333; }
+    .label { font-size: 12px; color: #888; margin-bottom: 5px; }
+    .val { background: #eee; padding: 10px; border-radius: 5px; font-family: monospace; color: #007bff; font-weight: bold; }
+    button { width: 100%; padding: 15px; background: #06c755; color: white; border: none; border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; }
+    button:disabled { background: #ccc; }
   </style>
 </head>
 <body>
 
-  <div class="loader"></div>
-  <h3>正在進入預約系統...</h3>
-  <div id="status">準備載入 LINE 元件...</div>
-  <div id="error-box"></div>
+  <h3>🔍 身分驗證診斷</h3>
+
+  <div class="box">
+    <div class="label">狀態：</div>
+    <div id="status" style="color:#d9534f;">正在初始化 LIFF...</div>
+  </div>
+
+  <div id="result-area" style="display:none;">
+    <div class="box">
+      <div class="label">成功取得 User ID：</div>
+      <div class="val" id="uid-display">---</div>
+    </div>
+
+    <div class="box">
+      <div class="label">準備跳轉到 GAS：</div>
+      <div class="val" id="target-url" style="font-size:11px;">---</div>
+    </div>
+    
+    <button id="go-btn" onclick="jump()">🚀 進入預約系統</button>
+  </div>
 
   <script>
-    // ▼▼▼ 1. 你的 LIFF ID (之前紀錄的) ▼▼▼
+    // 1. LIFF ID
     const MY_LIFF_ID = "2009054335-tUPGk28q";
 
-    // ▼▼▼ 2. 你的 GAS 正式網址 (已幫你填入剛剛提供的 ID) ▼▼▼
+    // 2. GAS 網址 (請確認 ID 正確)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    window.onload = function() {
-      loadLiffSDK();
-    };
+    let finalUrl = "";
 
-    function loadLiffSDK() {
-      document.getElementById('status').innerText = "驗證身分中...";
-      
-      var script = document.createElement('script');
-      script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
-      script.async = true;
-      
-      script.onload = function() {
-        initLiff();
-      };
-      
-      script.onerror = function() {
-        showError("無法連線至 LINE，請檢查網路。");
-      };
-      
-      document.head.appendChild(script);
-    }
-
-    async function initLiff() {
+    window.onload = async function() {
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
-        // 如果沒登入，執行登入
         if (!liff.isLoggedIn()) {
-          document.getElementById('status').innerText = "請先登入 LINE...";
+          document.getElementById('status').innerText = "尚未登入，請在 LINE 中打開";
           liff.login();
           return;
         }
 
-        // 取得 User ID
         const profile = await liff.getProfile();
         const userId = profile.userId;
-        document.getElementById('status').innerText = "驗證成功！正在跳轉...";
 
-        // 讀取網址參數 (?page=booking 或 ?page=profile)
+        // 顯示結果
+        document.getElementById('status').innerText = "✅ 驗證成功！";
+        document.getElementById('status').style.color = "#06c755";
+        document.getElementById('uid-display').innerText = userId;
+        
+        // 組合網址
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
-
-        // 組合目標網址：GAS + UserID + 頁面參數
-        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}`;
-
-        // 🚀 執行跳轉 (離開 GitHub，進入 GAS)
-        window.location.replace(targetUrl);
+        finalUrl = `${GAS_URL}?uid=${userId}&page=${page}`;
+        
+        document.getElementById('target-url').innerText = finalUrl;
+        document.getElementById('result-area').style.display = 'block';
 
       } catch (err) {
-        showError("初始化失敗: " + err.message + "\n(請確認 LIFF ID 設定正確)");
+        document.getElementById('status').innerText = "❌ 錯誤: " + err.message;
+        alert("LIFF 錯誤: " + err.message);
       }
-    }
+    };
 
-    function showError(msg) {
-      document.querySelector('.loader').style.display = 'none';
-      document.getElementById('status').style.display = 'none';
-      const box = document.getElementById('error-box');
-      box.style.display = 'block';
-      box.innerText = "發生錯誤：\n" + msg;
+    function jump() {
+      if(finalUrl) {
+        window.location.href = finalUrl;
+      }
     }
   </script>
 </body>
