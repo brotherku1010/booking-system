@@ -9,11 +9,9 @@
   <style>
     body { font-family: 'Noto Sans TC', sans-serif; text-align: center; padding: 40px 20px; background-color: #ffffff; color: #333; }
     
-    /* 載入動畫 */
     .loader { border: 4px solid #f3f3f3; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* 隱藏區塊 */
     .hidden { display: none; }
 
     /* 成功區塊 */
@@ -21,114 +19,144 @@
     .icon-circle { width: 80px; height: 80px; background: #06c755; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 4px 15px rgba(6, 199, 85, 0.3); }
     .check-icon { color: white; font-size: 40px; font-weight: bold; }
     
-    h2 { margin: 0 0 10px 0; color: #333; }
-    p { color: #666; font-size: 14px; margin-bottom: 30px; }
-
-    /* 進入按鈕 */
+    /* 救援按鈕 */
+    #rescue-area { margin-top: 30px; display: none; }
+    .btn-rescue { background: #ff9800; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+    
     .btn-enter { 
-      background: #06c755; color: white; 
-      border: none; padding: 15px 40px; 
-      border-radius: 50px; font-size: 18px; font-weight: bold; 
-      cursor: pointer; width: 100%; max-width: 280px;
+      background: #06c755; color: white; border: none; padding: 15px 40px; 
+      border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; max-width: 280px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      transition: transform 0.1s;
     }
-    .btn-enter:active { transform: scale(0.98); background: #05b34c; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    #debug-log { font-size: 12px; color: #aaa; margin-top: 10px; }
   </style>
 </head>
 <body>
 
   <div id="loading-area">
     <div class="loader"></div>
-    <div id="status-text" style="color:#888; font-size:14px;">正在安全驗證身分...</div>
+    <div id="status-text" style="color:#888; font-size:16px; font-weight:bold;">正在啟動...</div>
+    <div id="debug-log">準備載入 SDK</div>
+    
+    <div id="rescue-area">
+      <p style="color:#e65100; font-size:14px;">連線似乎太久了？</p>
+      <button class="btn-rescue" onclick="forceLogin()">⚡ 點我手動登入</button>
+      <br>
+      <button style="background:#ccc; border:none; padding:8px 15px; border-radius:20px; color:#555; font-size:12px; margin-top:5px;" onclick="window.location.reload()">重新整理</button>
+    </div>
   </div>
 
   <div id="success-area" class="hidden">
-    <div class="icon-circle">
-      <div class="check-icon">✓</div>
-    </div>
+    <div class="icon-circle"><div class="check-icon">✓</div></div>
     <h2>驗證成功</h2>
-    <p>Hi, <span id="user-name">朋友</span><br>您的身分已確認，請點擊下方按鈕。</p>
-    
+    <p>Hi, <span id="user-name">朋友</span><br>您的身分已確認。</p>
     <button class="btn-enter" onclick="enterSystem()">進入預約系統</button>
   </div>
 
   <script>
     const MY_LIFF_ID = "2009054335-tUPGk28q";
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
-
-    // 用來儲存最終要跳轉的網址
     let finalTargetUrl = "";
 
+    // 狀態顯示小工具
+    function updateStatus(msg, subMsg) {
+      document.getElementById('status-text').innerText = msg;
+      if(subMsg) document.getElementById('debug-log').innerText = subMsg;
+    }
+
+    // 啟動超時倒數 (4秒)
+    const timeoutTimer = setTimeout(() => {
+      document.getElementById('rescue-area').style.display = 'block';
+      updateStatus("連線回應逾時", "請嘗試手動按鈕");
+    }, 4000);
+
     window.onload = function() {
-      // 載入 LIFF SDK
+      updateStatus("下載元件中...", "Loading SDK...");
       var script = document.createElement('script');
       script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
       script.async = true;
-      script.onload = initLiff;
+      script.onload = () => {
+        updateStatus("元件載入完成", "SDK Ready");
+        initLiff();
+      };
+      script.onerror = () => {
+         updateStatus("網路連線失敗", "Check Network");
+         document.getElementById('rescue-area').style.display = 'block';
+      };
       document.head.appendChild(script);
     };
 
     async function initLiff() {
       try {
+        updateStatus("正在驗證身分...", "LIFF Init...");
         await liff.init({ liffId: MY_LIFF_ID });
 
         // 登入檢查
         if (!liff.isLoggedIn()) {
-          document.getElementById('status-text').innerText = "請求授權中...";
-          // 加上時間戳記強制重整，避免 Android 緩存問題
-          let freshUrl = window.location.href.split('?')[0] + "?t=" + new Date().getTime();
-          liff.login({ redirectUri: freshUrl });
+          updateStatus("需要授權", "Redirecting to Login...");
+          // 這裡不自動跳轉，改為讓使用者看清楚狀態
+          // 如果卡住，下面的救援按鈕會出現
+          liff.login({ redirectUri: window.location.href });
           return;
         }
 
-        // 取得資料
+        // 成功登入
+        clearTimeout(timeoutTimer); // 清除救援倒數
+        
         const profile = await liff.getProfile();
         const userId = profile.userId;
         const displayName = profile.displayName;
 
-        // 準備目標網址
+        // 準備網址
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
-        
-        // 組合網址 (記得只傳名字，不傳照片以防 Android 404)
         finalTargetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        // 更新 UI：顯示成功畫面
+        // 顯示成功介面
         showSuccessUI(displayName);
 
       } catch (err) {
-        // Token 自動修復機制
-        var errMsg = err.message.toLowerCase();
-        if (errMsg.includes("token")) {
-            if (liff.isLoggedIn()) liff.logout();
-            setTimeout(() => { window.location.reload(); }, 500);
-            return;
+        // 錯誤處理
+        updateStatus("發生錯誤", err.message);
+        document.getElementById('rescue-area').style.display = 'block';
+        
+        // 如果是 Token 錯誤，自動嘗試登出
+        if (err.message.toLowerCase().includes("token")) {
+             if (liff.isLoggedIn()) liff.logout();
         }
-        alert("錯誤: " + err.message);
       }
     }
 
     function showSuccessUI(name) {
-      // 隱藏讀取動畫，顯示成功區塊
       document.getElementById('loading-area').classList.add('hidden');
       document.getElementById('success-area').classList.remove('hidden');
       document.getElementById('user-name').innerText = name;
     }
 
-    // 使用者手動點擊後觸發，這是最穩定的跳轉方式
+    // 使用者點擊進入
     function enterSystem() {
       if(!finalTargetUrl) return;
-      
-      // 按鈕變更狀態，讓使用者知道有點到
       const btn = document.querySelector('.btn-enter');
       btn.innerText = "正在進入...";
       btn.style.opacity = "0.8";
-      
-      // 執行跳轉
       window.location.replace(finalTargetUrl);
+    }
+
+    // 救援：手動觸發登入
+    function forceLogin() {
+      if (typeof liff !== 'undefined') {
+        if (!liff.isLoggedIn()) {
+           liff.login({ redirectUri: window.location.href });
+        } else {
+           // 已經登入卻卡住？重整頁面
+           window.location.reload();
+        }
+      } else {
+        window.location.reload();
+      }
     }
   </script>
 </body>
