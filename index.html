@@ -14,13 +14,13 @@
 <body>
   <div class="loader"></div>
   <h3>正在讀取資料...</h3>
-  <div id="status">Android 相容模式</div>
+  <div id="status">驗證身分中</div>
 
   <script>
     // 1. LIFF ID
     const MY_LIFF_ID = "2009054335-tUPGk28q";
 
-    // 2. GAS 網址 (確認 ID 正確)
+    // 2. GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
     window.onload = function() {
@@ -37,32 +37,39 @@
 
     async function initLiff() {
       try {
+        // 初始化
         await liff.init({ liffId: MY_LIFF_ID });
+
+        // ★★★ 關鍵修正：登入邏輯 ★★★
         if (!liff.isLoggedIn()) {
-          liff.login();
+          document.getElementById('status').innerText = "請求授權中...";
+          
+          // 這裡加上 redirectUri，強制 LINE 授權完後「重新載入」這個頁面
+          // 這樣程式碼才會重跑一次，進而抓到 User ID
+          liff.login({ redirectUri: window.location.href });
           return;
         }
 
+        // --- 以下為登入後的邏輯 ---
         const profile = await liff.getProfile();
         const userId = profile.userId;
         const displayName = profile.displayName;
-        // const pictureUrl = profile.pictureUrl; // 暫時註解掉，避免網址過長
 
-        document.getElementById('status').innerText = "跳轉中...";
+        document.getElementById('status').innerText = "跳轉至會員系統...";
 
         // 讀取原本網址參數
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
 
-        // ★★★ Android 修正版：只傳送 ID 和 名字 ★★★
-        // 照片網址太長容易導致 Android 404，這裡我們先移除 pic 參數
+        // 組合網址 (不傳照片以相容 Android)
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        // Android 建議使用 href 進行完整轉向
+        // 執行跳轉
         window.location.href = targetUrl;
 
       } catch (err) {
-        alert("驗證失敗: " + err.message);
+        // 如果發生錯誤，顯示出來方便除錯
+        alert("驗證流程錯誤: " + err.message);
       }
     }
   </script>
