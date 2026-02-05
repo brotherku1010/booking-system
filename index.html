@@ -13,14 +13,14 @@
 </head>
 <body>
   <div class="loader"></div>
-  <h3>正在讀取您的 LINE 資料...</h3>
-  <div id="status">驗證中</div>
+  <h3>正在讀取資料...</h3>
+  <div id="status">Android 相容模式</div>
 
   <script>
     // 1. LIFF ID
     const MY_LIFF_ID = "2009054335-tUPGk28q";
 
-    // 2. GAS 網址
+    // 2. GAS 網址 (確認 ID 正確)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
     window.onload = function() {
@@ -45,20 +45,21 @@
 
         const profile = await liff.getProfile();
         const userId = profile.userId;
-        const displayName = profile.displayName; // 抓暱稱
-        const pictureUrl = profile.pictureUrl;   // 抓大頭貼
+        const displayName = profile.displayName;
+        // const pictureUrl = profile.pictureUrl; // 暫時註解掉，避免網址過長
 
-        document.getElementById('status').innerText = "資料讀取成功，跳轉中...";
+        document.getElementById('status').innerText = "跳轉中...";
 
         // 讀取原本網址參數
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
 
-        // ★★★ 關鍵：把資料編碼後塞進網址 ★★★
-        // 使用 encodeURIComponent 避免中文或特殊符號讓網址壞掉
-        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
+        // ★★★ Android 修正版：只傳送 ID 和 名字 ★★★
+        // 照片網址太長容易導致 Android 404，這裡我們先移除 pic 參數
+        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        window.location.replace(targetUrl);
+        // Android 建議使用 href 進行完整轉向
+        window.location.href = targetUrl;
 
       } catch (err) {
         alert("驗證失敗: " + err.message);
