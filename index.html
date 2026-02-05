@@ -15,37 +15,34 @@
 <body>
 
   <div class="loader"></div>
-  <h3>正在驗證身分...</h3>
+  <h3>正在進入預約系統...</h3>
   <div id="status">準備載入 LINE 元件...</div>
   <div id="error-box"></div>
 
   <script>
-    // ▼▼▼ 1. 請填入你的 LIFF ID ▼▼▼
+    // ▼▼▼ 1. 你的 LIFF ID (之前紀錄的) ▼▼▼
     const MY_LIFF_ID = "2009054335-tUPGk28q";
 
-    // ▼▼▼ 2. 請填入 GAS 網址 (注意：結尾必須是 /exec) ▼▼▼
+    // ▼▼▼ 2. 你的 GAS 正式網址 (已幫你填入剛剛提供的 ID) ▼▼▼
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    // 程式進入點
     window.onload = function() {
       loadLiffSDK();
     };
 
     function loadLiffSDK() {
-      document.getElementById('status').innerText = "下載 LINE SDK 中...";
+      document.getElementById('status').innerText = "驗證身分中...";
       
-      // 動態建立 script 標籤，確保下載完成才執行
       var script = document.createElement('script');
       script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
       script.async = true;
       
       script.onload = function() {
-        document.getElementById('status').innerText = "SDK 就緒，開始驗證...";
         initLiff();
       };
       
       script.onerror = function() {
-        showError("無法下載 LINE SDK，請檢查網路連線。");
+        showError("無法連線至 LINE，請檢查網路。");
       };
       
       document.head.appendChild(script);
@@ -53,36 +50,32 @@
 
     async function initLiff() {
       try {
-        // 雙重檢查
-        if (typeof liff === 'undefined') {
-            throw new Error("SDK 下載看似成功，但 liff 變數仍不存在");
-        }
-
         await liff.init({ liffId: MY_LIFF_ID });
 
+        // 如果沒登入，執行登入
         if (!liff.isLoggedIn()) {
-          document.getElementById('status').innerText = "尚未登入，跳轉至 LINE 登入...";
+          document.getElementById('status').innerText = "請先登入 LINE...";
           liff.login();
           return;
         }
 
+        // 取得 User ID
         const profile = await liff.getProfile();
         const userId = profile.userId;
-        document.getElementById('status').innerText = "驗證成功！跳轉至系統...";
+        document.getElementById('status').innerText = "驗證成功！正在跳轉...";
 
-        // 讀取原本網址的參數 (例如 ?page=booking)
+        // 讀取網址參數 (?page=booking 或 ?page=profile)
         const urlParams = new URLSearchParams(window.location.search);
-        const page = urlParams.get('page') || 'profile'; // 預設進個人頁
+        const page = urlParams.get('page') || 'profile';
 
-        // 組合 GAS 網址 (帶入 uid)
-        // 這裡會變成: https://script.google.com/.../exec?uid=U12345&page=booking
+        // 組合目標網址：GAS + UserID + 頁面參數
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}`;
 
-        // 執行跳轉
+        // 🚀 執行跳轉 (離開 GitHub，進入 GAS)
         window.location.replace(targetUrl);
 
       } catch (err) {
-        showError("LIFF 初始化失敗: " + err.message);
+        showError("初始化失敗: " + err.message + "\n(請確認 LIFF ID 設定正確)");
       }
     }
 
@@ -96,4 +89,3 @@
   </script>
 </body>
 </html>
-
