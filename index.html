@@ -1,50 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>連線中...</title>
-  <script src="https://static.line-scdn.net/liff/2.22.1/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding-top: 20%; color: #555; background-color: #fafafa; }
+    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    #status { font-size: 14px; margin-top: 10px; }
+    #error-box { color: red; margin-top: 20px; font-size: 12px; display: none; padding: 20px; word-break: break-all; }
+  </style>
 </head>
 <body>
-  <div style="text-align:center; padding-top:20%; font-family:sans-serif; color:#666;">
-    <h3>正在驗證身分...</h3>
-    <p>請稍候，即將進入系統</p>
-  </div>
+
+  <div class="loader"></div>
+  <h3>正在驗證身分...</h3>
+  <div id="status">準備載入 LINE 元件...</div>
+  <div id="error-box"></div>
 
   <script>
-    // ▼▼▼ 請填入你的 LIFF ID ▼▼▼
+    // ▼▼▼ 1. 請填入你的 LIFF ID ▼▼▼
     const MY_LIFF_ID = "2009054335-tUPGk28q";
-    
-    // ▼▼▼ 請填入你的 GAS 網頁應用程式網址 (結尾是 /exec) ▼▼▼
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    window.onload = async function() {
+    // ▼▼▼ 2. 請填入 GAS 網址 (注意：結尾必須是 /exec) ▼▼▼
+    const GAS_URL = "https://script.google.com/macros/s/你的_GAS_ID/exec"; 
+
+    // 程式進入點
+    window.onload = function() {
+      loadLiffSDK();
+    };
+
+    function loadLiffSDK() {
+      document.getElementById('status').innerText = "下載 LINE SDK 中...";
+      
+      // 動態建立 script 標籤，確保下載完成才執行
+      var script = document.createElement('script');
+      script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
+      script.async = true;
+      
+      script.onload = function() {
+        document.getElementById('status').innerText = "SDK 就緒，開始驗證...";
+        initLiff();
+      };
+      
+      script.onerror = function() {
+        showError("無法下載 LINE SDK，請檢查網路連線。");
+      };
+      
+      document.head.appendChild(script);
+    }
+
+    async function initLiff() {
       try {
+        // 雙重檢查
+        if (typeof liff === 'undefined') {
+            throw new Error("SDK 下載看似成功，但 liff 變數仍不存在");
+        }
+
         await liff.init({ liffId: MY_LIFF_ID });
-        
+
         if (!liff.isLoggedIn()) {
+          document.getElementById('status').innerText = "尚未登入，跳轉至 LINE 登入...";
           liff.login();
           return;
         }
 
         const profile = await liff.getProfile();
         const userId = profile.userId;
-        
-        // 抓取原本網址後面的參數 (例如 ?page=profile)
-        const urlParams = new URLSearchParams(window.location.search);
-        const page = urlParams.get('page') || 'booking';
+        document.getElementById('status').innerText = "驗證成功！跳轉至系統...";
 
-        // 組合新網址：GAS網址 + uid + page
-        // 這樣 GAS 就不需要自己跑 LIFF，直接讀參數就好
+        // 讀取原本網址的參數 (例如 ?page=booking)
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page') || 'profile'; // 預設進個人頁
+
+        // 組合 GAS 網址 (帶入 uid)
+        // 這裡會變成: https://script.google.com/.../exec?uid=U12345&page=booking
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}`;
-        
-        // 跳轉
+
+        // 執行跳轉
         window.location.replace(targetUrl);
 
       } catch (err) {
-        alert("驗證失敗：" + err.message);
+        showError("LIFF 初始化失敗: " + err.message);
       }
-    };
+    }
+
+    function showError(msg) {
+      document.querySelector('.loader').style.display = 'none';
+      document.getElementById('status').style.display = 'none';
+      const box = document.getElementById('error-box');
+      box.style.display = 'block';
+      box.innerText = "發生錯誤：\n" + msg;
+    }
   </script>
 </body>
 </html>
