@@ -37,38 +37,47 @@
 
     async function initLiff() {
       try {
-        // 初始化
         await liff.init({ liffId: MY_LIFF_ID });
 
-        // ★★★ 關鍵修正：登入邏輯 ★★★
         if (!liff.isLoggedIn()) {
           document.getElementById('status').innerText = "請求授權中...";
-          
-          // 這裡加上 redirectUri，強制 LINE 授權完後「重新載入」這個頁面
-          // 這樣程式碼才會重跑一次，進而抓到 User ID
           liff.login({ redirectUri: window.location.href });
           return;
         }
 
-        // --- 以下為登入後的邏輯 ---
         const profile = await liff.getProfile();
         const userId = profile.userId;
         const displayName = profile.displayName;
 
         document.getElementById('status').innerText = "跳轉至會員系統...";
 
-        // 讀取原本網址參數
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
 
-        // 組合網址 (不傳照片以相容 Android)
+        // 只傳名字，不傳照片 (避免 Android 404)
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        // 執行跳轉
         window.location.href = targetUrl;
 
       } catch (err) {
-        // 如果發生錯誤，顯示出來方便除錯
+        // ★★★ 自動修復機制：處理 Token 失效 ★★★
+        var errMsg = err.message.toLowerCase();
+        
+        if (errMsg.includes("access token revoked") || errMsg.includes("token")) {
+            document.getElementById('status').innerText = "偵測到登入逾時，正在重置...";
+            
+            // 1. 強制清除 LIFF 內部的快取
+            if (liff.isLoggedIn()) {
+              liff.logout();
+            }
+            
+            // 2. 0.5秒後重新整理頁面，這會觸發全新的登入流程
+            setTimeout(function() {
+                window.location.reload();
+            }, 500);
+            return;
+        }
+
         alert("驗證流程錯誤: " + err.message);
       }
     }
