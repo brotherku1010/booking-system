@@ -3,42 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>會員系統</title>
-  <script src="https://static.line-scdn.net/liff/2.22.1/sdk.js"></script>
+  <title>會員驗證</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Noto Sans TC', sans-serif; text-align: center; padding: 60px 20px; background-color: #ffffff; color: #333; }
     
-    /* 讀取圈圈 */
+    /* 讀取動畫 */
     .loader { border: 4px solid #f3f3f3; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    .hidden { display: none; }
+    .hidden { display: none !important; }
 
     /* 準備就緒區塊 */
     #ready-area { animation: fadeIn 0.3s; }
     
-    /* 大頭貼 (圓形裁切) */
+    /* 大頭貼 */
     .user-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 2px solid #06c755; }
-    
     h2 { margin: 10px 0 30px 0; font-size: 20px; color: #333; }
 
-    /* 核心按鈕 */
+    /* 進入按鈕 */
     .btn-enter { 
-      background: #06c755; 
-      color: white; 
-      border: none; 
-      padding: 16px 0; 
-      border-radius: 50px; 
-      font-size: 18px; 
-      font-weight: bold; 
-      cursor: pointer; 
-      width: 100%; 
-      max-width: 300px;
-      box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
+      background: #06c755; color: white; border: none; padding: 16px 0; 
+      border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; 
+      width: 100%; max-width: 300px; box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
       transition: all 0.2s;
     }
     .btn-enter:active { transform: scale(0.98); background: #05b34c; }
+
+    /* 未就緒時的按鈕樣式 (灰色) */
+    .btn-enter:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -52,88 +46,84 @@
 
   <div id="ready-area" class="hidden">
     <img id="avatar-img" class="user-avatar" src="https://cdn-icons-png.flaticon.com/512/847/847969.png">
-    
     <h2 id="welcome-msg">歡迎回來</h2>
     
-    <button class="btn-enter" onclick="enterSystem()">進入會員系統</button>
+    <button id="enter-btn" class="btn-enter" onclick="enterSystem()" disabled>資料讀取中...</button>
   </div>
 
   <script>
-    // ▼▼▼ 設定區 ▼▼▼
     const MY_LIFF_ID = "2009054335-tUPGk28q";
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
     
     let finalTargetUrl = "";
+    let isDataReady = false;
 
+    // ★★★ 核心邏輯：1秒鐘後強制切換畫面 ★★★
+    setTimeout(() => {
+        document.getElementById('loading-area').classList.add('hidden');
+        document.getElementById('ready-area').classList.remove('hidden');
+    }, 1000); // 這裡控制轉圈圈的時間，1000 = 1秒
+
+    // 程式進入點
     window.onload = function() {
-      // 載入 SDK
-      var script = document.createElement('script');
-      script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
-      script.async = true;
-      script.onload = initLiff;
-      document.head.appendChild(script);
+       initLiff();
     };
 
     async function initLiff() {
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
-        // 1. 如果沒登入，就去登入 (登入完會自動重整回來)
+        // 1. 登入檢查
         if (!liff.isLoggedIn()) {
-          // 加上時間戳記，確保 Android 登入後會刷新
           let freshUrl = window.location.href.split('?')[0] + "?t=" + new Date().getTime();
           liff.login({ redirectUri: freshUrl });
           return;
         }
 
-        // 2. 登入成功，馬上抓資料
-        const profile = await liff.getProfile();
-        const userId = profile.userId;
-        const displayName = profile.displayName;
-        const pictureUrl = profile.pictureUrl;
+        // 2. ★極速優化★：改用 getDecodedIDToken 瞬間取得資料
+        // 這比 getProfile 快非常多，不需要額外網路請求
+        const user = liff.getDecodedIDToken();
+        const userId = user.sub; // sub 就是 userId
+        const displayName = user.name;
+        const pictureUrl = user.picture;
 
-        // 3. 準備 GAS 網址 (只傳名字與ID，不傳照片網址以免 Android 404)
+        // 3. 準備網址
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
-        
         finalTargetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        // 4. 更新畫面 (直接顯示按鈕，不等待)
-        showReadyUI(displayName, pictureUrl);
+        // 4. 更新畫面資料 & 啟用按鈕
+        activateButton(displayName, pictureUrl);
 
       } catch (err) {
-        // 例外處理：如果 Token 失效，自動登出重試
-        if (err.message.toLowerCase().includes("token")) {
+        // Token 自動修復
+        if (err.message && err.message.toLowerCase().includes("token")) {
             if (liff.isLoggedIn()) liff.logout();
             setTimeout(() => window.location.reload(), 500);
-            return;
         }
-        alert("錯誤：" + err.message);
       }
     }
 
-    function showReadyUI(name, pic) {
-      // 隱藏轉圈圈
-      document.getElementById('loading-area').classList.add('hidden');
-      
-      // 更新大頭貼 (如果有)
+    function activateButton(name, pic) {
+      // 更新大頭貼與名字
       if(pic) document.getElementById('avatar-img').src = pic;
       document.getElementById('welcome-msg').innerText = "Hi, " + name;
 
-      // 顯示按鈕區
-      document.getElementById('ready-area').classList.remove('hidden');
+      // 啟用按鈕 (變綠色)
+      const btn = document.getElementById('enter-btn');
+      btn.innerText = "進入會員系統";
+      btn.disabled = false;
+      isDataReady = true;
     }
 
-    // 使用者點擊按鈕，觸發強制跳轉
     function enterSystem() {
-      if(!finalTargetUrl) return;
+      if(!isDataReady || !finalTargetUrl) return;
       
-      // 按鈕變色提示
-      const btn = document.querySelector('.btn-enter');
+      const btn = document.getElementById('enter-btn');
       btn.innerText = "正在進入...";
       btn.style.opacity = "0.8";
       
-      // 跳轉
+      // 強制跳轉
       window.location.replace(finalTargetUrl);
     }
   </script>
