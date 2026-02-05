@@ -3,25 +3,47 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>身分驗證中...</title>
+  <title>連線中...</title>
   <script src="https://static.line-scdn.net/liff/2.22.1/sdk.js"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding-top: 20%; background-color: #f5f5f5; color: #555; }
     .loader { border: 4px solid #f3f3f3; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    /* 卡住時顯示的救援區塊 */
+    #stuck-help { display: none; margin-top: 30px; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .btn-retry { background: #06c755; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    .btn-close { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-size: 16px; cursor: pointer; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class="loader"></div>
-  <h3>正在讀取資料...</h3>
-  <div id="status">驗證身分中</div>
+  <div class="loader" id="loading-spinner"></div>
+  <h3 id="title-text">正在讀取資料...</h3>
+  <div id="status">驗證身分中 (v5.0)</div>
+
+  <div id="stuck-help">
+    <p style="color:red; font-weight:bold;">⚠️ 連線似乎卡住了</p>
+    <p style="font-size:14px; text-align:left;">
+      如果這是在「授權同意」後發生的，<br>
+      請嘗試以下操作：
+    </p>
+    <button class="btn-retry" onclick="forceReload()">🔄 點我強制重整</button>
+    <br><br>
+    <p style="font-size:12px; color:#999;">如果重整無效，請點擊下方按鈕關閉視窗，再重新進入即可。</p>
+    <button class="btn-close" onclick="liff.closeWindow()">❌ 關閉視窗</button>
+  </div>
 
   <script>
-    // 1. LIFF ID
     const MY_LIFF_ID = "2009054335-tUPGk28q";
-
-    // 2. GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
+
+    // ★★★ 設定 5 秒超時偵測 ★★★
+    // 如果 5 秒後還沒成功跳轉，就顯示救援區塊
+    const stuckTimer = setTimeout(() => {
+      document.getElementById('stuck-help').style.display = 'block';
+      document.getElementById('status').innerText = "系統回應逾時";
+      document.getElementById('loading-spinner').style.display = 'none';
+    }, 5000);
 
     window.onload = function() {
       loadSDK();
@@ -39,47 +61,50 @@
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
+        // 登入判斷
         if (!liff.isLoggedIn()) {
           document.getElementById('status').innerText = "請求授權中...";
-          liff.login({ redirectUri: window.location.href });
+          
+          // ★★★ 優化：加上時間戳記，避免 Android 吃到壞掉的快取 ★★★
+          let cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+          let freshUrl = cleanUrl + "?t=" + new Date().getTime(); 
+          
+          liff.login({ redirectUri: freshUrl });
           return;
         }
 
+        // 成功登入
+        clearTimeout(stuckTimer); // 清除超時計時器
+        
         const profile = await liff.getProfile();
         const userId = profile.userId;
         const displayName = profile.displayName;
 
-        document.getElementById('status').innerText = "跳轉至會員系統...";
+        document.getElementById('status').innerText = "驗證成功，進入系統...";
 
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
 
-        // 只傳名字，不傳照片 (避免 Android 404)
+        // 跳轉
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
-
-        window.location.href = targetUrl;
+        window.location.replace(targetUrl);
 
       } catch (err) {
-        // ★★★ 自動修復機制：處理 Token 失效 ★★★
+        // Token 失效自動修復
         var errMsg = err.message.toLowerCase();
-        
         if (errMsg.includes("access token revoked") || errMsg.includes("token")) {
-            document.getElementById('status').innerText = "偵測到登入逾時，正在重置...";
-            
-            // 1. 強制清除 LIFF 內部的快取
-            if (liff.isLoggedIn()) {
-              liff.logout();
-            }
-            
-            // 2. 0.5秒後重新整理頁面，這會觸發全新的登入流程
-            setTimeout(function() {
-                window.location.reload();
-            }, 500);
+            document.getElementById('status').innerText = "正在重置連線...";
+            if (liff.isLoggedIn()) liff.logout();
+            setTimeout(() => { window.location.reload(); }, 500);
             return;
         }
-
-        alert("驗證流程錯誤: " + err.message);
+        alert("錯誤: " + err.message);
       }
+    }
+
+    // 強制重整功能
+    function forceReload() {
+      window.location.href = window.location.href.split('?')[0] + "?t=" + new Date().getTime();
     }
   </script>
 </body>
