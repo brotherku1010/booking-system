@@ -1,28 +1,50 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>預約服務</title>
-    <style>
-        /* 讓 iframe 佔滿整個視窗，不留白邊 */
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            overflow: hidden; 
-        }
-        iframe {
-            border: none;
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>連線中...</title>
+  <script src="https://static.line-scdn.net/liff/2.22.1/sdk.js"></script>
 </head>
 <body>
-    <iframe src="https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"></iframe>
+  <div style="text-align:center; padding-top:20%; font-family:sans-serif; color:#666;">
+    <h3>正在驗證身分...</h3>
+    <p>請稍候，即將進入系統</p>
+  </div>
+
+  <script>
+    // ▼▼▼ 請填入你的 LIFF ID ▼▼▼
+    const MY_LIFF_ID = "2009054335-tUPGk28q";
+    
+    // ▼▼▼ 請填入你的 GAS 網頁應用程式網址 (結尾是 /exec) ▼▼▼
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
+
+    window.onload = async function() {
+      try {
+        await liff.init({ liffId: MY_LIFF_ID });
+        
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        const userId = profile.userId;
+        
+        // 抓取原本網址後面的參數 (例如 ?page=profile)
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page') || 'booking';
+
+        // 組合新網址：GAS網址 + uid + page
+        // 這樣 GAS 就不需要自己跑 LIFF，直接讀參數就好
+        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}`;
+        
+        // 跳轉
+        window.location.replace(targetUrl);
+
+      } catch (err) {
+        alert("驗證失敗：" + err.message);
+      }
+    };
+  </script>
 </body>
 </html>
-
