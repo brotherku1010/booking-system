@@ -5,102 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Noto Sans TC', sans-serif; text-align: center; padding: 60px 20px; background-color: #ffffff; color: #333; }
-    
-    /* 大頭貼 (預設顯示) */
-    .user-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 2px solid #06c755; transition: all 0.5s; }
-    
-    h2 { margin: 10px 0 30px 0; font-size: 20px; color: #333; }
-
-    /* 核心按鈕：一開始就是綠色可點狀態 */
-    .btn-enter { 
-      background: #06c755; color: white; border: none; padding: 16px 0; 
-      border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; 
-      width: 100%; max-width: 300px; box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
-      transition: all 0.2s;
+    /* 簡潔的載入畫面 */
+    body {
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      height: 100vh; background-color: #f2f4f6; font-family: sans-serif;
     }
-    .btn-enter:active { transform: scale(0.98); background: #05b34c; }
-
-    /* 載入中的按鈕樣式 (點擊後變色) */
-    .btn-loading { opacity: 0.8; cursor: wait; }
-
-    /* 隱藏區塊 */
-    .hidden { display: none; }
+    .loader {
+      border: 4px solid #ddd; border-top: 4px solid #06c755;
+      border-radius: 50%; width: 40px; height: 40px;
+      animation: spin 0.8s linear infinite; margin-bottom: 15px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .text { color: #888; font-size: 14px; }
   </style>
 </head>
 <body>
 
-  <div id="main-area">
-    <img id="avatar-img" class="user-avatar" src="https://cdn-icons-png.flaticon.com/512/847/847969.png">
-    
-    <h2 id="welcome-msg">歡迎加入會員</h2>
-    
-    <button id="enter-btn" class="btn-enter" onclick="handleUserClick()">進入會員系統</button>
-  </div>
+  <div class="loader"></div>
+  <div class="text">系統連線中...</div>
 
   <script>
-    const MY_LIFF_ID = "2009054335-tUPGk28q";
+    // ★★★ 設定區 ★★★
+    const MY_LIFF_ID = "2009054335-tUPGk28q"; // 你的 LIFF ID
+    // 你的 GAS 部署網址 (確認是最新版)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
-    
-    let finalTargetUrl = "";  // 存網址用
-    let isPendingRedirect = false; // 紀錄使用者是否已經按了按鈕
 
-    // 1. 網頁一載入，背景立刻開始跑 LIFF
+    // 初始化
     window.onload = function() {
        initLiff();
     };
-
-    // 2. 這顆按鈕現在身兼數職 (進入 / 等待 / 重試)
-    function handleUserClick() {
-      const btn = document.getElementById('enter-btn');
-
-      // 狀況 A: 資料已經好了 -> 直接進系統
-      if (finalTargetUrl) {
-         btn.innerText = "正在進入...";
-         window.location.replace(finalTargetUrl);
-         return;
-      }
-
-      // 狀況 B: 資料還沒好 (背景還在跑) -> 變更按鈕狀態，等好了自動進
-      btn.innerText = "連線確認中...";
-      btn.classList.add('btn-loading');
-      isPendingRedirect = true; // 立 flag，告訴系統「使用者很急，一抓到資料馬上跳轉」
-
-      // 狀況 C: 保底機制 (如果按了之後過 3 秒還沒反應，代表卡住了，強制重整)
-      // 這就是你要的「點我重試」功能，只是自動化了
-      setTimeout(() => {
-        if (!finalTargetUrl) {
-           btn.innerText = "連線逾時，重新整理...";
-           window.location.reload();
-        }
-      }, 3000);
-    }
 
     async function initLiff() {
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
-        // 如果沒登入，去登入 (登入完會自動重整回來)
+        // 1. 沒登入就去登入
         if (!liff.isLoggedIn()) {
-          let freshUrl = window.location.href.split('?')[0] + "?t=" + new Date().getTime();
-          liff.login({ redirectUri: freshUrl });
+          liff.login();
           return;
         }
 
-        // 嘗試抓資料 (優先用解碼，失敗用 API)
-        let displayName = "會員";
+        // 2. 抓取資料 (嘗試快速解碼 -> 失敗則用標準 API)
         let userId = "";
+        let displayName = "Member";
         let pictureUrl = "";
 
         try {
             const user = liff.getDecodedIDToken();
-            if(user && user.sub) {
+            if (user && user.sub) {
                 userId = user.sub;
                 displayName = user.name;
                 pictureUrl = user.picture;
-            } else { throw new Error("No Data"); }
+            } else {
+                throw new Error("No Decoded ID");
+            }
         } catch (e) {
             const profile = await liff.getProfile();
             userId = profile.userId;
@@ -108,31 +68,24 @@
             pictureUrl = profile.pictureUrl;
         }
 
-        // 準備好網址
+        // 3. 準備參數 (profile 或 booking)
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
-        finalTargetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}`;
 
-        // 更新大頭貼 (讓畫面看起來更像真的)
-        if (pictureUrl) {
-            document.getElementById('avatar-img').src = pictureUrl;
-        }
-
-        // ★★★ 關鍵邏輯：如果使用者剛剛已經按了按鈕，現在資料來了，立刻跳轉 ★★★
-        if (isPendingRedirect) {
-            document.getElementById('enter-btn').innerText = "驗證成功，進入中...";
-            window.location.replace(finalTargetUrl);
-        }
+        // 4. ★★★ 關鍵：直接跳轉，不等待 ★★★
+        // 組合目標網址
+        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
+        
+        // 執行跳轉
+        window.location.replace(targetUrl);
 
       } catch (err) {
-        // Token 錯誤自動修復
-        if (err.message && err.message.toLowerCase().includes("token")) {
-            if (liff.isLoggedIn()) liff.logout();
-            setTimeout(() => window.location.reload(), 500);
-        }
+        // 錯誤處理：如果 LIFF 初始化失敗，顯示錯誤並嘗試重整
+        document.querySelector('.text').innerText = "連線重試中...";
+        console.error(err);
+        setTimeout(() => window.location.reload(), 2000);
       }
     }
   </script>
 </body>
 </html>
-
