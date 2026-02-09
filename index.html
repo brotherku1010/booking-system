@@ -6,33 +6,42 @@
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* 簡潔的載入畫面 */
     body {
       margin: 0; padding: 0;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
       height: 100vh; background-color: #f2f4f6; font-family: sans-serif;
     }
+    /* 轉圈圈動畫 */
     .loader {
       border: 4px solid #ddd; border-top: 4px solid #06c755;
       border-radius: 50%; width: 40px; height: 40px;
       animation: spin 0.8s linear infinite; margin-bottom: 15px;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .text { color: #888; font-size: 14px; }
+    
+    .text { color: #888; font-size: 14px; font-weight: bold; }
+    
+    /* 安全氣囊：手動按鈕 (預設隱藏，卡住才會出現) */
+    #fallback-btn {
+      display: none; margin-top: 20px;
+      padding: 10px 20px; background-color: #06c755; color: white;
+      text-decoration: none; border-radius: 20px; font-size: 14px;
+    }
   </style>
 </head>
 <body>
 
   <div class="loader"></div>
-  <div class="text">系統連線中...</div>
+  <div class="text" id="status-text">系統連線中...</div>
+  
+  <a id="fallback-btn" href="#">點此進入系統</a>
 
   <script>
     // ★★★ 設定區 ★★★
-    const MY_LIFF_ID = "2009054335-tUPGk28q"; // 你的 LIFF ID
-    // 你的 GAS 部署網址 (確認是最新版)
+    const MY_LIFF_ID = "2009054335-tUPGk28q"; // 您的 LIFF ID
+    // 您的 GAS 部署網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    // 初始化
     window.onload = function() {
        initLiff();
     };
@@ -41,49 +50,61 @@
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
-        // 1. 沒登入就去登入
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
         }
 
-        // 2. 抓取資料 (嘗試快速解碼 -> 失敗則用標準 API)
+        // 1. 抓取資料
         let userId = "";
         let displayName = "Member";
         let pictureUrl = "";
 
         try {
+            const profile = await liff.getProfile();
+            userId = profile.userId;
+            displayName = profile.displayName;
+            pictureUrl = profile.pictureUrl;
+        } catch (e) {
+            console.error("Profile Error", e);
+            // 降級嘗試使用 ID Token
             const user = liff.getDecodedIDToken();
             if (user && user.sub) {
                 userId = user.sub;
                 displayName = user.name;
                 pictureUrl = user.picture;
-            } else {
-                throw new Error("No Decoded ID");
             }
-        } catch (e) {
-            const profile = await liff.getProfile();
-            userId = profile.userId;
-            displayName = profile.displayName;
-            pictureUrl = profile.pictureUrl;
         }
 
-        // 3. 準備參數 (profile 或 booking)
+        // 2. 準備參數
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
 
-        // 4. ★★★ 關鍵：直接跳轉，不等待 ★★★
-        // 組合目標網址
+        // 3. 組合網址
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
         
-        // 執行跳轉
-        window.location.replace(targetUrl);
+        // 4. ★★★ 安卓強制跳轉邏輯 ★★★
+        document.getElementById('status-text').innerText = "正在進入...";
+        
+        // 設定安全氣囊：如果 2 秒後還沒跳轉，顯示手動按鈕
+        setTimeout(() => {
+           document.getElementById('fallback-btn').href = targetUrl;
+           document.getElementById('fallback-btn').style.display = "inline-block";
+           document.getElementById('status-text').innerText = "若未自動跳轉，請點擊下方按鈕";
+        }, 2000);
+
+        // 嘗試跳轉 (優先用 replace，失敗用 href)
+        if (liff.isInClient()) {
+            // 在 LINE App 內
+            window.location.replace(targetUrl);
+        } else {
+            // 外部瀏覽器
+            window.location.href = targetUrl;
+        }
 
       } catch (err) {
-        // 錯誤處理：如果 LIFF 初始化失敗，顯示錯誤並嘗試重整
-        document.querySelector('.text').innerText = "連線重試中...";
+        document.querySelector('.text').innerText = "連線異常，請重新整理";
         console.error(err);
-        setTimeout(() => window.location.reload(), 2000);
       }
     }
   </script>
