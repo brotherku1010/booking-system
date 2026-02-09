@@ -2,44 +2,66 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body {
+    /* 1. 鎖定畫面，不讓使用者隨意滑動造成破版 */
+    body, html {
       margin: 0; padding: 0;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      height: 100vh; background-color: #f2f4f6; font-family: sans-serif;
+      width: 100%; height: 100%;
+      overflow: hidden; /* 禁止外層滾動 */
+      background-color: #f2f4f6;
     }
-    /* 轉圈圈動畫 */
-    .loader {
+
+    /* 2. 轉圈圈樣式 (載入前顯示) */
+    #loader {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 5;
+    }
+    .spinner {
       border: 4px solid #ddd; border-top: 4px solid #06c755;
       border-radius: 50%; width: 40px; height: 40px;
-      animation: spin 0.8s linear infinite; margin-bottom: 15px;
+      animation: spin 0.8s linear infinite; margin: 0 auto 15px auto;
     }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    
-    .text { color: #888; font-size: 14px; font-weight: bold; }
-    
-    /* 安全氣囊：手動按鈕 (預設隱藏，卡住才會出現) */
-    #fallback-btn {
-      display: none; margin-top: 20px;
-      padding: 10px 20px; background-color: #06c755; color: white;
-      text-decoration: none; border-radius: 20px; font-size: 14px;
+    .text { color: #888; font-size: 14px; font-family: sans-serif; font-weight: bold; }
+    @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+    /* 3. ★★★ 遮罩容器 (關鍵魔法) ★★★ */
+    #app-container {
+      position: absolute;
+      top: -56px;  /* 這裡設定負值，把 Google 的灰色 Banner 往上推出去 */
+      left: 0;
+      width: 100%;
+      height: calc(100% + 56px); /* 補回被推上去的高度，確保下方不會留白 */
+      z-index: 10;
+      display: none; /* 預設隱藏，等網址準備好再顯示 */
+      -webkit-overflow-scrolling: touch; /* 讓 iOS 滾動順暢 */
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
     }
   </style>
 </head>
 <body>
 
-  <div class="loader"></div>
-  <div class="text" id="status-text">系統連線中...</div>
-  
-  <a id="fallback-btn" href="#">點此進入系統</a>
+  <div id="loader">
+    <div class="spinner"></div>
+    <div class="text">系統連線中...</div>
+  </div>
+
+  <div id="app-container"></div>
 
   <script>
     // ★★★ 設定區 ★★★
     const MY_LIFF_ID = "2009054335-tUPGk28q"; // 您的 LIFF ID
-    // 您的 GAS 部署網址
+    // 您的 GAS 部署網址 (請確認是最新版)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
     window.onload = function() {
@@ -67,7 +89,6 @@
             pictureUrl = profile.pictureUrl;
         } catch (e) {
             console.error("Profile Error", e);
-            // 降級嘗試使用 ID Token
             const user = liff.getDecodedIDToken();
             if (user && user.sub) {
                 userId = user.sub;
@@ -83,24 +104,20 @@
         // 3. 組合網址
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
         
-        // 4. ★★★ 安卓強制跳轉邏輯 ★★★
-        document.getElementById('status-text').innerText = "正在進入...";
+        // 4. ★★★ 建立 Iframe (嵌入模式) ★★★
+        // 這種方式不需要轉址，所以安卓絕對不會被擋，且可以透過 CSS 遮住廣告
+        const container = document.getElementById('app-container');
+        const iframe = document.createElement('iframe');
         
-        // 設定安全氣囊：如果 2 秒後還沒跳轉，顯示手動按鈕
-        setTimeout(() => {
-           document.getElementById('fallback-btn').href = targetUrl;
-           document.getElementById('fallback-btn').style.display = "inline-block";
-           document.getElementById('status-text').innerText = "若未自動跳轉，請點擊下方按鈕";
-        }, 2000);
+        iframe.src = targetUrl;
+        
+        // 監聽載入完成，隱藏轉圈圈
+        iframe.onload = function() {
+           document.getElementById('loader').style.display = 'none';
+        };
 
-        // 嘗試跳轉 (優先用 replace，失敗用 href)
-        if (liff.isInClient()) {
-            // 在 LINE App 內
-            window.location.replace(targetUrl);
-        } else {
-            // 外部瀏覽器
-            window.location.href = targetUrl;
-        }
+        container.appendChild(iframe);
+        container.style.display = 'block';
 
       } catch (err) {
         document.querySelector('.text').innerText = "連線異常，請重新整理";
