@@ -11,32 +11,36 @@
       display: flex; flex-direction: column; justify-content: center; align-items: center;
       height: 100vh; background-color: #f2f4f6; font-family: sans-serif;
     }
+    
+    /* 轉圈圈動畫 */
     .loader {
       border: 4px solid #ddd; border-top: 4px solid #06c755;
       border-radius: 50%; width: 40px; height: 40px;
-      animation: spin 0.8s linear infinite; margin-bottom: 15px;
+      animation: spin 0.8s linear infinite; margin-bottom: 20px;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
     .text { color: #888; font-size: 14px; font-weight: bold; margin-bottom: 20px; }
     
-    /* 安全按鈕：萬一安卓跳轉失敗，使用者可以手動點擊 */
+    /* 安卓救星按鈕 (預設隱藏，卡住才會出現) */
     #fallback-btn {
-      display: none; /* 預設隱藏 */
-      padding: 12px 24px;
+      display: none;
+      padding: 12px 30px;
       background-color: #06c755;
       color: white;
       text-decoration: none;
-      border-radius: 30px;
+      border-radius: 50px;
       font-size: 16px;
       box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
       font-weight: bold;
+      transition: background 0.2s;
     }
+    #fallback-btn:active { background-color: #05a546; }
   </style>
 </head>
 <body>
 
-  <div class="loader" id="loader"></div>
+  <div class="loader"></div>
   <div class="text" id="status-text">系統連線中...</div>
   
   <a id="fallback-btn" href="#">點此進入系統</a>
@@ -55,12 +59,13 @@
       try {
         await liff.init({ liffId: MY_LIFF_ID });
 
+        // 1. 沒登入就去登入
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
         }
 
-        // 1. 抓取資料
+        // 2. 抓取資料
         let userId = "";
         let displayName = "Member";
         let pictureUrl = "";
@@ -71,6 +76,7 @@
             displayName = profile.displayName;
             pictureUrl = profile.pictureUrl;
         } catch (e) {
+            console.error("Profile Error", e);
             const user = liff.getDecodedIDToken();
             if (user && user.sub) {
                 userId = user.sub;
@@ -79,30 +85,31 @@
             }
         }
 
-        // 2. 準備參數
+        // 3. 準備參數
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
 
-        // 3. 組合網址
+        // 4. 組合網址
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
         
-        // 4. 設定安全氣囊 (針對安卓轉址卡住的問題)
+        // 5. 設定按鈕連結 (給安卓備用)
         const fallbackBtn = document.getElementById('fallback-btn');
-        const statusText = document.getElementById('status-text');
+        fallbackBtn.href = targetUrl;
         
-        fallbackBtn.href = targetUrl; // 設定按鈕連結
+        // 6. 執行跳轉
+        document.getElementById('status-text').innerText = "正在進入...";
         
-        // 1.5秒後如果還沒跳轉成功，就顯示按鈕
+        // 1.5秒後如果還停在這裡，顯示按鈕 (針對安卓阻擋自動跳轉)
         setTimeout(() => {
            fallbackBtn.style.display = "inline-block";
-           statusText.innerText = "若未自動跳轉，請點擊下方按鈕";
+           document.getElementById('status-text').innerText = "若未自動跳轉，請點擊按鈕";
         }, 1500);
 
-        // 5. 執行跳轉
+        // 優先嘗試自動跳轉
         if (liff.isInClient()) {
-            window.location.replace(targetUrl); // LINE 內部瀏覽器優先使用 replace
+            window.location.replace(targetUrl);
         } else {
-            window.location.href = targetUrl; // 外部瀏覽器
+            window.location.href = targetUrl;
         }
 
       } catch (err) {
