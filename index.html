@@ -2,61 +2,44 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* 1. 鎖定畫面，不讓使用者隨意滑動造成破版 */
-    body, html {
+    body {
       margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden; /* 禁止外層滾動 */
-      background-color: #f2f4f6;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      height: 100vh; background-color: #f2f4f6; font-family: sans-serif;
     }
-
-    /* 2. 轉圈圈樣式 (載入前顯示) */
-    #loader {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      z-index: 5;
-    }
-    .spinner {
+    .loader {
       border: 4px solid #ddd; border-top: 4px solid #06c755;
       border-radius: 50%; width: 40px; height: 40px;
-      animation: spin 0.8s linear infinite; margin: 0 auto 15px auto;
+      animation: spin 0.8s linear infinite; margin-bottom: 15px;
     }
-    .text { color: #888; font-size: 14px; font-family: sans-serif; font-weight: bold; }
-    @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
-
-    /* 3. ★★★ 遮罩容器 (關鍵魔法) ★★★ */
-    #app-container {
-      position: absolute;
-      top: -56px;  /* 這裡設定負值，把 Google 的灰色 Banner 往上推出去 */
-      left: 0;
-      width: 100%;
-      height: calc(100% + 56px); /* 補回被推上去的高度，確保下方不會留白 */
-      z-index: 10;
-      display: none; /* 預設隱藏，等網址準備好再顯示 */
-      -webkit-overflow-scrolling: touch; /* 讓 iOS 滾動順暢 */
-    }
-
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    .text { color: #888; font-size: 14px; font-weight: bold; margin-bottom: 20px; }
+    
+    /* 安全按鈕：萬一安卓跳轉失敗，使用者可以手動點擊 */
+    #fallback-btn {
+      display: none; /* 預設隱藏 */
+      padding: 12px 24px;
+      background-color: #06c755;
+      color: white;
+      text-decoration: none;
+      border-radius: 30px;
+      font-size: 16px;
+      box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
 
-  <div id="loader">
-    <div class="spinner"></div>
-    <div class="text">系統連線中...</div>
-  </div>
-
-  <div id="app-container"></div>
+  <div class="loader" id="loader"></div>
+  <div class="text" id="status-text">系統連線中...</div>
+  
+  <a id="fallback-btn" href="#">點此進入系統</a>
 
   <script>
     // ★★★ 設定區 ★★★
@@ -88,7 +71,6 @@
             displayName = profile.displayName;
             pictureUrl = profile.pictureUrl;
         } catch (e) {
-            console.error("Profile Error", e);
             const user = liff.getDecodedIDToken();
             if (user && user.sub) {
                 userId = user.sub;
@@ -104,23 +86,27 @@
         // 3. 組合網址
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
         
-        // 4. ★★★ 建立 Iframe (嵌入模式) ★★★
-        // 這種方式不需要轉址，所以安卓絕對不會被擋，且可以透過 CSS 遮住廣告
-        const container = document.getElementById('app-container');
-        const iframe = document.createElement('iframe');
+        // 4. 設定安全氣囊 (針對安卓轉址卡住的問題)
+        const fallbackBtn = document.getElementById('fallback-btn');
+        const statusText = document.getElementById('status-text');
         
-        iframe.src = targetUrl;
+        fallbackBtn.href = targetUrl; // 設定按鈕連結
         
-        // 監聽載入完成，隱藏轉圈圈
-        iframe.onload = function() {
-           document.getElementById('loader').style.display = 'none';
-        };
+        // 1.5秒後如果還沒跳轉成功，就顯示按鈕
+        setTimeout(() => {
+           fallbackBtn.style.display = "inline-block";
+           statusText.innerText = "若未自動跳轉，請點擊下方按鈕";
+        }, 1500);
 
-        container.appendChild(iframe);
-        container.style.display = 'block';
+        // 5. 執行跳轉
+        if (liff.isInClient()) {
+            window.location.replace(targetUrl); // LINE 內部瀏覽器優先使用 replace
+        } else {
+            window.location.href = targetUrl; // 外部瀏覽器
+        }
 
       } catch (err) {
-        document.querySelector('.text').innerText = "連線異常，請重新整理";
+        document.getElementById('status-text').innerText = "連線異常，請關閉重試";
         console.error(err);
       }
     }
