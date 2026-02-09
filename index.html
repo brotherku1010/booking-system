@@ -1,484 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-  <base target="_top">
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>會員服務</title>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>會員系統</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    :root {
-      --primary: #06c755; --bg: #f2f4f6; --text: #2c3e50;
-      --card-shadow: 0 10px 20px rgba(0,0,0,0.05); --red: #ff3b30;
-      --gold: linear-gradient(135deg, #f1c40f, #f39c12);
-      --platinum: linear-gradient(135deg, #bdc3c7, #2c3e50);
-      --diamond: linear-gradient(135deg, #a1c4fd, #c2e9fb);
-      --black-gold: linear-gradient(135deg, #2c3e50, #000); 
-    }
-    body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding-bottom: 120px; }
-    .container { padding: 20px; max-width: 500px; margin: 0 auto; }
-    #page-loading { background: var(--bg); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .loader { width: 40px; height: 40px; border: 4px solid #ddd; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .member-card { background: linear-gradient(135deg, #2ecc71, #06c755); color: white; border-radius: 20px; padding: 25px; position: relative; overflow: hidden; box-shadow: 0 15px 30px rgba(0,0,0,0.15); margin-bottom: 20px; min-height: 140px; }
-    .member-card::before { content: ""; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; }
-    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; position: relative; z-index: 1; }
-    .user-info { display: flex; align-items: center; gap: 15px; }
-    .avatar { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.5); object-fit: cover; background: #fff; }
-    .user-details h2 { margin: 0; font-size: 20px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .vip-tag { font-size: 12px; font-weight: bold; padding: 4px 12px; border-radius: 20px; background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); margin-top: 5px; display: inline-block; }
-    .card-body { position: relative; z-index: 1; text-align: right; }
-    .balance-amount { font-size: 36px; font-weight: 700; letter-spacing: 1px; }
-    
-    .member-code-box { 
-      font-size: 13px; background: rgba(0,0,0,0.2); padding: 6px 12px; border-radius: 20px; 
-      display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #eee; letter-spacing: 1px;
-      cursor: pointer; transition: all 0.2s; user-select: none;
-    }
-    .member-code-box:active { background: rgba(0,0,0,0.4); transform: scale(0.96); }
-
-    #toast-msg {
-      visibility: hidden; min-width: 200px; background-color: #333; color: #fff; text-align: center;
-      border-radius: 50px; padding: 12px; position: fixed; z-index: 9999;
-      left: 50%; bottom: 100px; transform: translateX(-50%); font-size: 14px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.3s;
-    }
-    #toast-msg.show { visibility: visible; opacity: 1; bottom: 110px; }
-
-    .action-card { background: #fff; padding: 20px; border-radius: 16px; box-shadow: var(--card-shadow); margin-bottom: 15px; }
-    .btn-main { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-green { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(6, 199, 85, 0.3); }
-    .btn-outline { background: transparent; border: 1px solid #ddd; color: #666; }
-    
-    .service-card { background: #fff; padding: 16px; border-radius: 12px; border: 2px solid transparent; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: var(--card-shadow); transition: all 0.2s; margin-bottom:10px; }
-    .service-card.active { border-color: var(--primary); background: #f0fff4; }
-    
-    .pill-group { display: flex; gap: 10px; }
-    .pill-btn { flex: 1; padding: 12px; background: #fff; border: 1px solid #eee; border-radius: 10px; text-align: center; cursor: pointer; font-weight: 500; color: #666; transition: all 0.2s; }
-    .pill-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-    input { width: 100%; padding: 14px; border: 1px solid #eee; border-radius: 10px; font-size: 16px; background: #fff; outline: none; box-sizing: border-box; }
-    
-    .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .time-slot { padding: 10px; text-align: center; border: 1px solid #eee; border-radius: 8px; background: #fff; color: #333; cursor: pointer; }
-    .time-slot.busy { background: #f5f5f5 !important; color: #ccc !important; pointer-events: none; }
-    .time-slot.selected { background: var(--primary) !important; color: white !important; }
-
-    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 15px 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; z-index: 100; }
-    .page { display: none; animation: fadeIn 0.3s; }
-    .page.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* Modal */
-    #custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; }
-    .modal-box { background: white; width: 85%; max-width: 320px; padding: 25px; border-radius: 20px; text-align: center; max-height: 80vh; overflow-y: auto; }
-    .modal-btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-    
-    .history-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-    .history-item:last-child { border-bottom: none; }
-    .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-    .status-success { background: #e8f8f0; color: #06c755; }
-    .status-pending { background: #fff5e6; color: #f39c12; }
-    
-    .badge-container { display: flex; gap: 8px; flex-wrap: wrap; }
-    .badge { padding: 8px 16px; background: #fff; border: 1px solid #eee; border-radius: 30px; cursor: pointer; }
-    .badge.active { background: var(--primary); color: white; border-color: var(--primary); }
-    .badge.add { border: 1px dashed var(--primary); color: var(--primary); }
-    
-    .bank-info-box { background: #f0f9ff; padding: 15px; border-radius: 10px; text-align: left; border-left: 4px solid #3498db; margin-bottom: 15px; }
-    .bank-info-row { font-size: 14px; margin-bottom: 5px; color: #2c3e50; }
-    .bank-highlight { font-weight: bold; font-size: 15px; color:#0056b3; }
-
-    .benefit-card { border-radius: 16px; padding: 20px; margin-bottom: 15px; color: white; position: relative; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-    .benefit-card h3 { margin: 0 0 15px 0; font-size: 20px; color: white; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 10px; }
-    .benefit-card ul { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8; }
-    .benefit-card li { margin-bottom: 8px; }
-    .benefit-card.gold { background: var(--gold); }
-    .benefit-card.platinum { background: var(--platinum); }
-    .benefit-card.diamond { background: var(--diamond); }
-    .benefit-note { font-size: 12px; color: #888; text-align: center; margin-top: 20px; line-height: 1.6; background: #fff; padding: 15px; border-radius: 10px; }
-    .referral-card { background: #fff0f6; border-left: 4px solid #e91e63; color: #333; }
-    .referral-card h3 { color: #e91e63; border-bottom: 1px solid #ffc1e3; }
-    
-    /* ★★★ 新增學員表單優化 ★★★ */
-    #new-student-form { background: #fafafa; padding: 20px; border-radius: 15px; border: 1px solid #eee; margin-top: 15px; }
-    .input-label { font-size: 12px; color: #666; margin-bottom: 5px; display: block; font-weight: bold; }
+    body { margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background-color: #f2f4f6; font-family: sans-serif; }
+    .loader { border: 4px solid #ddd; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .text { color: #888; font-size: 14px; font-weight: bold; margin-bottom: 20px; }
+    #fallback-btn { display: none; padding: 12px 30px; background-color: #06c755; color: white; text-decoration: none; border-radius: 50px; font-size: 16px; box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3); font-weight: bold; }
   </style>
 </head>
 <body>
-
-  <div id="page-loading">
-    <div class="loader"></div>
-    <p style="color:#999; margin-top:15px; font-size:14px;">系統連線中...</p>
-  </div>
-
-  <div id="toast-msg">已複製推薦碼！</div>
-
-  <div id="page-register" class="page">
-    <div class="container">
-      <div class="action-card">
-        <label class="input-label">姓名</label><input type="text" id="regName" style="margin-bottom:15px;">
-        <label class="input-label">電話</label><input type="tel" id="regPhone" style="margin-bottom:15px;">
-        <label class="input-label">生日</label><input type="date" id="regBirth" style="margin-bottom:15px;">
-        <label class="input-label">推薦人代碼 (選填)</label>
-        <input type="text" id="regReferrer" placeholder="輸入6碼推薦碼" style="text-transform:uppercase;">
-        <button class="btn-main btn-green" style="margin-top:20px;" onclick="doRegister()">確認綁定</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="page-profile" class="page">
-    <div class="container">
-      <div class="member-card" id="memberCardBg">
-        <div class="card-header">
-          <div class="user-info">
-            <img id="profileAvatar" class="avatar" src="">
-            <div class="user-details">
-              <h2 id="profileName">--</h2>
-              <span id="profileLevel" class="vip-tag">一般會員</span>
-            </div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="balance-label">現有點數</div>
-          <div class="balance-amount"><span id="profileBalance">0</span><span class="currency">P</span></div>
-          <div id="myMemberCode" class="member-code-box" onclick="copyMemberCode()" data-code="">
-             推薦碼: -- <span style="font-size:14px; margin-left:3px;">📋</span>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:grid; gap:15px; margin-bottom:20px;">
-        <div class="action-card" onclick="switchPage('page-booking')" style="cursor:pointer; display:flex; align-items:center; gap:15px;">
-          <div style="font-size:24px;">📅</div>
-          <div style="flex-grow:1;">
-            <div style="font-weight:bold;">立即預約</div>
-            <div style="color:#888; font-size:13px;">預約課程</div>
-          </div>
-          <div>›</div>
-        </div>
-        
-        <div class="action-card" onclick="switchPage('page-topup-history')" style="cursor:pointer; display:flex; align-items:center; gap:15px;">
-           <div style="font-size:24px;">💰</div>
-           <div style="flex-grow:1;">
-             <div style="font-weight:bold;">儲值紀錄</div>
-             <div style="color:#888; font-size:13px;">查看儲值與狀態</div>
-           </div>
-           <div>›</div>
-        </div>
-
-        <div class="action-card" onclick="switchPage('page-benefits')" style="cursor:pointer; display:flex; align-items:center; gap:15px;">
-           <div style="font-size:24px;">💎</div>
-           <div style="flex-grow:1;">
-             <div style="font-weight:bold;">會員權益</div>
-             <div style="color:#888; font-size:13px;">查看等級優惠</div>
-           </div>
-           <div>›</div>
-        </div>
-      </div>
-
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h3 style="margin:0;">📋 最近預約</h3>
-        <div onclick="switchPage('page-all-history')" style="color:var(--primary); font-size:14px; cursor:pointer;">顯示全部 ›</div>
-      </div>
-      <div class="action-card" id="history-list">
-        <div style="text-align:center; color:#999; padding:10px;">載入中...</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="page-all-history" class="page">
-    <div style="background:rgba(255,255,255,0.9); padding:15px; display:flex; align-items:center;">
-      <button class="btn-outline" onclick="handleBookingBack()" style="border:none; font-size:20px;">‹</button>
-      <div style="flex-grow:1; text-align:center; font-weight:bold;">預約紀錄</div>
-      <div style="width:20px;"></div>
-    </div>
-    <div class="container">
-      <div class="action-card" id="all-history-list">
-        <div style="text-align:center; color:#999;">載入中...</div>
-      </div>
-      <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
-        <button class="btn-outline" id="btn-prev-page" onclick="changePage(-1)" style="width:auto; padding:5px 20px;">上一頁</button>
-        <span id="page-indicator" style="line-height:36px;">1 / 1</span>
-        <button class="btn-outline" id="btn-next-page" onclick="changePage(1)" style="width:auto; padding:5px 20px;">下一頁</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="page-benefits" class="page">
-    <div style="background:rgba(255,255,255,0.9); padding:15px; display:flex; align-items:center;">
-      <button class="btn-outline" onclick="handleBookingBack()" style="border:none; font-size:20px;">‹</button>
-      <div style="flex-grow:1; text-align:center; font-weight:bold;">會員權益</div>
-      <div style="width:20px;"></div>
-    </div>
-    <div class="container">
-      <div class="benefit-card referral-card">
-        <h3>MGM 推薦獎勵</h3>
-        <ul>
-          <li><strong>邀請好友：</strong>將您的推薦碼分享給好友。</li>
-          <li><strong>好友優惠：</strong>好友註冊時輸入您的推薦碼。</li>
-          <li><strong>回饋獎勵：</strong>當好友單筆消費滿 500 點，系統將自動回饋您 <strong>200 點</strong>！</li>
-        </ul>
-      </div>
-      <div class="benefit-card gold">
-        <h3>VIP1 黃金會員</h3>
-        <ul>
-          <li><strong>見面禮：</strong>贈送300點</li>
-          <li><strong>生日禮：</strong>生日當月服務費單次9折券</li>
-          <li><strong>儲值回饋：</strong>儲1000送100，依此類推~</li>
-        </ul>
-      </div>
-      <div class="benefit-card platinum">
-        <h3>VIP2 白金會員</h3>
-        <ul>
-          <li><strong>晉升條件：</strong>單筆儲值1萬 或 累積2萬</li>
-          <li><strong>服務折扣：</strong>全館 95 折</li>
-          <li><strong>生日禮：</strong>專屬實體小禮物 (價值$200+)</li>
-          <li><strong>儲值回饋：</strong><br>儲1000送110... (略)<br>儲5000以上，本金乘以1.12倍</li>
-        </ul>
-      </div>
-      <div class="benefit-card diamond">
-        <h3>VIP3 鑽石會員</h3>
-        <ul>
-          <li><strong>晉升條件：</strong>單筆儲值3萬 或 累積8萬</li>
-          <li><strong>服務折扣：</strong>全館 9 折</li>
-          <li><strong>親友共享：</strong>可設定2位親友同享折扣</li>
-          <li><strong>生日禮：</strong>生日當月「免費贈送一堂課」及「精美禮品」</li>
-          <li><strong>儲值回饋：</strong>1.15倍 (例:儲1萬送1500)</li>
-        </ul>
-      </div>
-      <div class="benefit-note">
-        💡 <strong>貼心提醒：</strong><br>
-        點數可永久使用，未消費不會清算。<br>
-        若超過三個月未消費，會員層級優惠將暫時凍結，<br>
-        只需進行一次消費即可恢復原會員層級。
-      </div>
-    </div>
-  </div>
-
-  <div id="page-topup-history" class="page">
-    <div style="background:rgba(255,255,255,0.9); padding:15px; display:flex; align-items:center;">
-      <button class="btn-outline" onclick="handleBookingBack()" style="border:none; font-size:20px;">‹</button>
-      <div style="flex-grow:1; text-align:center; font-weight:bold;">儲值紀錄</div>
-      <div style="width:20px;"></div>
-    </div>
-    <div class="container">
-      <button class="btn-main btn-green" style="margin-bottom:20px;" onclick="showTopupFlow()">＋ 立即儲值</button>
-      <div class="action-card" id="topup-list"><div style="text-align:center; color:#999; padding:10px;">載入中...</div></div>
-    </div>
-  </div>
-
-  <div id="page-booking" class="page">
-    <div style="background:rgba(255,255,255,0.9); padding:15px; display:flex; align-items:center;">
-      <button class="btn-outline" onclick="handleBookingBack()" style="border:none; font-size:20px;">‹</button>
-      <div style="flex-grow:1; text-align:center; font-weight:bold;">預約課程</div>
-      <div style="width:20px;"></div>
-    </div>
-    <div class="container" style="padding-top:10px;">
-      <h3>1. 選擇服務</h3><div id="service-list"></div>
-      <h3>2. 時長</h3><div class="pill-group"><div class="pill-btn active" onclick="selectDuration(60, this)">1 H</div><div class="pill-btn" onclick="selectDuration(90, this)">1.5 H</div><div class="pill-btn" onclick="selectDuration(120, this)">2 H</div></div>
-      <h3>3. 時間</h3><div class="action-card"><input type="date" id="dateSelect" onchange="renderSlots()" style="margin-bottom:15px;"><div id="slotsContainer" class="time-grid"></div></div>
-      
-      <h3>4. 學員</h3>
-      <div class="action-card">
-        <div id="student-container" class="badge-container"></div>
-        
-        <div id="new-student-form" style="display:none;">
-          <label class="input-label">學員姓名</label>
-          <input type="text" id="newChildName" placeholder="輸入姓名" style="margin-bottom:10px;">
-          
-          <label class="input-label">學員生日</label>
-          <input type="date" id="newChildBirth" style="margin-bottom:10px;">
-          
-          <div style="display:flex; gap:10px;">
-             <div style="flex:1;">
-               <label class="input-label">年級 (選填)</label>
-               <input type="text" id="newChildGrade" placeholder="例: 小二">
-             </div>
-             <div style="flex:1;">
-               <label class="input-label">備註 (選填)</label>
-               <input type="text" id="newChildNote" placeholder="備註事項">
-             </div>
-          </div>
-          
-          <button class="btn-main btn-green" style="margin-top:15px;" onclick="saveNewChild(event)">儲存</button>
-        </div>
-        
-        <div style="margin-top:15px; color:var(--primary);">選擇：<strong id="selectedStudentDisplay">本人</strong></div>
-      </div>
-    </div>
-    <div class="bottom-bar">
-      <div>
-        <div style="font-size:12px; color:#888;">需付訂金</div>
-        <div style="color:var(--primary); font-weight:bold; font-size:20px;" id="depositPriceDisplay">0 P</div>
-        <div style="font-size:11px; color:#999;">餘額: <span id="currentBalanceDisplay">--</span></div>
-      </div>
-      <button id="btnSubmitBooking" class="btn-main btn-green" style="width:auto; padding:10px 30px; border-radius:50px;" onclick="openConfirmModal()">確認預約</button>
-    </div>
-  </div>
-
-  <div id="custom-modal">
-    <div class="modal-box"><h3 id="modal-title" style="margin-top:0;">標題</h3><div id="modal-content"></div><div id="modal-actions" class="modal-btn-group"></div></div>
-  </div>
-
-  <div id="page-success" class="page">
-    <div class="container" style="text-align:center; padding-top:60px;">
-      <div style="width:80px; height:80px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; box-shadow:0 10px 20px rgba(6,199,85,0.3);"><span style="color:white; font-size:40px;">✓</span></div>
-      <h2 id="success-title" style="color:var(--text); margin-bottom:10px;">預約完成！</h2>
-      <p id="success-desc" style="color:#666; line-height:1.6;">系統處理中</p>
-      <div class="action-card" id="success-details" style="text-align:left; margin-top:30px; border-left:4px solid var(--primary); display:none;">
-        <p style="margin:8px 0;"><strong>服務：</strong> <span id="sSvc">--</span></p>
-        <p style="margin:8px 0;"><strong>學員：</strong> <span id="sStu">--</span></p>
-        <p style="margin:8px 0;"><strong>時間：</strong> <span id="sTime">--</span></p>
-        <p style="margin:8px 0;"><strong>訂金：</strong> <span id="sPrice" style="color:var(--primary);">--</span></p>
-      </div>
-      <div id="success-btn-group" style="margin-top:30px;"><button class="btn-main btn-green" onclick="switchPage('page-profile')">回會員中心</button></div>
-    </div>
-  </div>
-
+  <div class="loader"></div>
+  <div class="text" id="status-text">系統連線中...</div>
+  <a id="fallback-btn" href="#">點此進入系統</a>
   <script>
-    const SERVER_UID = "<?= uidFromUrl ?>"; 
-    const SERVER_PAGE = "<?= pageFromUrl ?>";
-    const SERVER_NAME = "<?= nameFromUrl ?>"; 
-    const SERVER_PIC = "<?= picFromUrl ?>"; 
-    
-    let currentLineId = SERVER_UID;
-    let parentName = ""; 
-    let parentBalance = 0; 
-    let currentLevel = "VIP1";
-    let allServices = [];
-    let myChildren = []; 
-    
-    let selectedServiceIdx = null;
-    let selectedDuration = 60;
-    let selectedTime = null;
-    let selectedStudentName = "本人";
-    let finalDeposit = 0; 
-    let historyPage = 1;
-    let historyTotalPages = 1;
+    // ★★★ 請確認這邊填入正確的資訊 ★★★
+    const MY_LIFF_ID = "2009054335-tUPGk28q"; 
+    // 請填入您 GAS 部署的網址 (結尾是 /exec)
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    window.onload = function() {
-      if(SERVER_PIC) document.getElementById('profileAvatar').src = SERVER_PIC;
-      if(SERVER_NAME) document.getElementById('regName').value = SERVER_NAME;
-      setupDefaultDate();
-      loadServices();
-      checkMemberAndRedirect();
-    };
-
-    function checkMemberAndRedirect() {
-      google.script.run.withSuccessHandler(res => {
-        document.getElementById('page-loading').style.display = 'none';
-        if (res.isMember) {
-          parentName = res.name; 
-          parentBalance = parseInt(res.balance) || 0;
-          currentLevel = res.level;
-          updateProfileUI(res);
-          loadChildren(); 
-          loadHistory(); 
-          if(document.getElementById('currentBalanceDisplay')) 
-             document.getElementById('currentBalanceDisplay').innerText = parentBalance;
-          if (SERVER_PAGE === 'booking') switchPage('page-booking');
-          else switchPage('page-profile');
-        } else {
-          switchPage('page-register');
+    window.onload = function() { initLiff(); };
+    async function initLiff() {
+      try {
+        await liff.init({ liffId: MY_LIFF_ID });
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        let userId = "", displayName = "Member", pictureUrl = "";
+        try {
+            const profile = await liff.getProfile();
+            userId = profile.userId; displayName = profile.displayName; pictureUrl = profile.pictureUrl;
+        } catch (e) {
+            const user = liff.getDecodedIDToken();
+            if (user && user.sub) { userId = user.sub; displayName = user.name; pictureUrl = user.picture; }
         }
-      }).checkMemberStatus(currentLineId);
-    }
-
-    function copyMemberCode() {
-      let el = document.getElementById('myMemberCode');
-      let code = el.getAttribute('data-code');
-      if(!code) return;
-      navigator.clipboard.writeText(code).then(() => { showToast(); })
-        .catch(err => {
-           let input = document.createElement('input');
-           input.value = code;
-           document.body.appendChild(input);
-           input.select();
-           document.execCommand('copy');
-           document.body.removeChild(input);
-           showToast();
-        });
-    }
-
-    function showToast() {
-      let toast = document.getElementById("toast-msg");
-      toast.className = "show";
-      setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
-    }
-
-    function updateProfileUI(res) {
-      safeSetText('profileName', res.name);
-      safeSetText('profileBalance', res.balance);
-      safeSetText('currentBalanceDisplay', res.balance);
-      if(res.memberCode) {
-         let el = document.getElementById('myMemberCode');
-         el.innerHTML = `推薦碼: <span style="font-weight:bold; color:#fff;">${res.memberCode}</span> <span style="font-size:14px; margin-left:5px;">📋</span>`;
-         el.setAttribute('data-code', res.memberCode);
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page') || 'profile';
+        const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
+        
+        const fallbackBtn = document.getElementById('fallback-btn');
+        fallbackBtn.href = targetUrl;
+        document.getElementById('status-text').innerText = "正在進入...";
+        setTimeout(() => {
+           fallbackBtn.style.display = "inline-block";
+           document.getElementById('status-text').innerText = "若未自動跳轉，請點擊按鈕";
+        }, 1500);
+        if (liff.isInClient()) { window.location.replace(targetUrl); } else { window.location.href = targetUrl; }
+      } catch (err) {
+        document.getElementById('status-text').innerText = "連線異常，請關閉重試";
       }
-      let bg = document.getElementById('memberCardBg');
-      let lvl = document.getElementById('profileLevel');
-      if(res.level && res.level.includes('VIP1')) { bg.style.background="var(--gold)"; lvl.innerText="👑 黃金會員"; bg.style.color="#fff"; }
-      else if(res.level && res.level.includes('VIP2')) { bg.style.background="var(--platinum)"; lvl.innerText="💎 白金會員"; bg.style.color="#fff"; }
-      else if(res.level && res.level.includes('VIP3')) { bg.style.background="var(--diamond)"; lvl.innerText="💠 鑽石會員"; bg.style.color="#fff"; }
-      else if(res.level && res.level.includes('VIP4')) { bg.style.background="var(--black-gold)"; lvl.innerText="🏆 黑金會員"; bg.style.color="#ffd700"; }
-      else { bg.style.background="linear-gradient(135deg, #2ecc71, #06c755)"; lvl.innerText="一般會員"; bg.style.color="#fff"; }
     }
-
-    function saveNewChild(e) {
-      if(e) e.preventDefault();
-      const name = document.getElementById('newChildName').value;
-      const note = document.getElementById('newChildNote').value;
-      const birth = document.getElementById('newChildBirth').value;
-      const grade = document.getElementById('newChildGrade').value;
-      
-      if(!name || !birth) return alert("請輸入姓名與生日");
-      
-      const btn = event.target;
-      btn.innerText = "儲存中...";
-      
-      google.script.run.withSuccessHandler(children => {
-        myChildren = children;
-        document.getElementById('newChildName').value = '';
-        document.getElementById('newChildNote').value = '';
-        document.getElementById('newChildBirth').value = '';
-        document.getElementById('newChildGrade').value = '';
-        btn.innerText = "儲存";
-        selectStudent(name); 
-      }).addChild({ lineId: currentLineId, name: name, note: note, birth: birth, grade: grade });
-    }
-
-    // --- 其他函式省略 (請務必複製上一版的完整內容) ---
-    // 包含: switchPage, loadAllHistory, changePage, loadHistory, loadTopups, openConfirmModal, showTopupFlow, submitTopup, showTransferFlow, submitTransferBooking, doNormalBooking, fillSuccessDetails, closeModal, safeSetText, handleBookingBack, setupDefaultDate, loadServices, selectService, selectDuration, calculateTotal, renderSlots, loadChildren, renderStudentOptions, createBadge, selectStudent, doRegister
-    
-    // 完整補齊如下：
-    function switchPage(pid) { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(pid).classList.add('active'); window.scrollTo(0,0); if (pid === 'page-profile') { loadHistory(); google.script.run.withSuccessHandler(res => { if(res.isMember) { parentBalance = parseInt(res.balance) || 0; currentLevel = res.level; updateProfileUI(res); } }).checkMemberStatus(currentLineId); } else if (pid === 'page-topup-history') { loadTopups(); } else if (pid === 'page-all-history') { historyPage = 1; loadAllHistory(historyPage); } }
-    function loadAllHistory(page) { document.getElementById('all-history-list').innerHTML = '<div style="text-align:center; color:#999; padding:10px;">載入中...</div>'; google.script.run.withSuccessHandler(data => { const container = document.getElementById('all-history-list'); container.innerHTML = ''; historyTotalPages = data.totalPages; document.getElementById('page-indicator').innerText = `${page} / ${historyTotalPages}`; document.getElementById('btn-prev-page').disabled = (page <= 1); document.getElementById('btn-next-page').disabled = (page >= historyTotalPages); if(data.records.length === 0) { container.innerHTML = '<div style="text-align:center; color:#ccc; padding:20px;">無資料</div>'; return; } data.records.forEach(item => { let statusClass = item.status === '預約成功' ? 'status-success' : 'status-pending'; let html = `<div class="history-item"><div><div style="font-weight:bold;">${item.service}</div><div style="font-size:12px; color:#888;">${item.date} ${item.time} (${item.student})</div></div><div class="status-badge ${statusClass}">${item.status}</div></div>`; container.innerHTML += html; }); }).getHistoryByPage(currentLineId, page); }
-    function changePage(delta) { let newPage = historyPage + delta; if (newPage > 0 && newPage <= historyTotalPages) { historyPage = newPage; loadAllHistory(historyPage); } }
-    function loadHistory() { google.script.run.withSuccessHandler(list => { const container = document.getElementById('history-list'); container.innerHTML = ''; if(list.length === 0) { container.innerHTML = '<div style="text-align:center; color:#ccc; padding:20px;">尚無預約紀錄</div>'; return; } list.forEach(item => { let statusClass = item.status === '預約成功' ? 'status-success' : 'status-pending'; let html = `<div class="history-item"><div><div style="font-weight:bold;">${item.service}</div><div style="font-size:12px; color:#888;">${item.date} ${item.time} (${item.student})</div></div><div class="status-badge ${statusClass}">${item.status}</div></div>`; container.innerHTML += html; }); }).getMemberBookings(currentLineId); }
-    function loadTopups() { google.script.run.withSuccessHandler(list => { const container = document.getElementById('topup-list'); container.innerHTML = ''; if(list.length === 0) { container.innerHTML = '<div style="text-align:center; color:#ccc; padding:20px;">尚無儲值紀錄</div>'; return; } list.forEach(item => { let statusClass = (item.status === '成功' || item.status === 'Success') ? 'status-success' : 'status-pending'; let html = `<div class="history-item"><div><div style="font-weight:bold; font-size:16px;">$${item.amount}</div><div style="font-size:12px; color:#888;">${item.time}</div></div><div class="status-badge ${statusClass}">${item.status}</div></div>`; container.innerHTML += html; }); }).getMemberTopups(currentLineId); }
-    function openConfirmModal() { if(selectedServiceIdx === null) return alert("請選擇服務"); if(!selectedTime) return alert("請選擇時間"); const modal = document.getElementById('custom-modal'); const title = document.getElementById('modal-title'); const content = document.getElementById('modal-content'); const actions = document.getElementById('modal-actions'); modal.style.display = 'flex'; if (parentBalance < finalDeposit) { title.innerText = "餘額不足"; title.style.color = "var(--red)"; content.innerHTML = `<p style="text-align:center; color:#666;">需付訂金：${finalDeposit} P<br>目前餘額：${parentBalance} P<br><span style="color:var(--red); font-weight:bold;">尚缺 ${finalDeposit - parentBalance} P</span></p>`; actions.innerHTML = `<button class="btn-main btn-outline" style="flex:1;" onclick="showTopupFlow()">儲值</button><button class="btn-main btn-green" style="flex:1;" onclick="showTransferFlow()">轉帳</button>`; return; } title.innerText = "確認預約"; title.style.color = "#333"; let svcName = allServices[selectedServiceIdx].name; content.innerHTML = `<div style="background:#f9f9f9; padding:15px; border-radius:10px; text-align:left;"><strong>學員：</strong> ${selectedStudentName}<br><strong>服務：</strong> ${svcName}<br><strong>時間：</strong> ${document.getElementById('dateSelect').value} ${selectedTime}<br><hr style="border:0; border-top:1px dashed #ddd; margin:10px 0;"><strong style="color:var(--primary)">訂金：${finalDeposit} P</strong></div>`; actions.innerHTML = `<button class="btn-main btn-outline" style="flex:1;" onclick="closeModal()">取消</button><button class="btn-main btn-green" style="flex:1;" onclick="doNormalBooking()">確定</button>`; }
-    function showTopupFlow() { document.getElementById('modal-title').innerText = "申請儲值"; document.getElementById('modal-content').innerHTML = `<div class="bank-info-box"><div class="bank-info-row">郵局代碼：<span class="bank-highlight">700 (中華郵政)</span></div><div class="bank-info-row">存簿帳號：<span class="bank-highlight">0031157 0431234</span></div><div class="bank-info-row">戶名：(您的姓名)</div></div><p style="font-size:13px; color:#666; text-align:left;">轉帳後請輸入金額，等待確認。</p><input type="number" id="topupAmount" placeholder="輸入金額 (例如: 1000)" style="margin-top:5px;">`; document.getElementById('modal-actions').innerHTML = `<button class="btn-main btn-outline" style="flex:1;" onclick="closeModal()">取消</button><button class="btn-main btn-green" style="flex:1;" onclick="submitTopup()">送出申請</button>`; document.getElementById('custom-modal').style.display = 'flex'; }
-    function submitTopup() { let amt = document.getElementById('topupAmount').value; if(!amt) return alert("請輸入金額"); event.target.innerText = "處理中..."; event.target.disabled = true; google.script.run.withSuccessHandler(res => { closeModal(); document.getElementById('success-title').innerText = "申請已送出"; document.getElementById('success-title').style.color = "#f39c12"; document.getElementById('success-desc').innerText = "我們會盡快確認您的款項。"; document.getElementById('success-details').style.display = 'none'; document.getElementById('success-btn-group').innerHTML = `<button class="btn-main btn-outline" style="margin-bottom:10px;" onclick="switchPage('page-profile')">回會員中心</button><button class="btn-main btn-green" onclick="switchPage('page-booking')">去預約課程</button>`; switchPage('page-success'); }).submitTopup({ lineId: currentLineId, name: parentName, amount: amt }); }
-    function showTransferFlow() { document.getElementById('modal-title').innerText = "轉帳預約"; document.getElementById('modal-content').innerHTML = `<div class="bank-info-box"><div class="bank-info-row">銀行代碼：<span class="bank-highlight">822 (中國信託)</span></div><div class="bank-info-row">銀行帳號：<span class="bank-highlight">1234-5678-9012</span></div><div class="bank-info-row">戶名：您的姓名</div></div><p style="font-size:14px; color:var(--red); font-weight:bold; margin-bottom:5px;">本次訂金：${finalDeposit} 元</p><p style="font-size:12px; color:#888; margin-top:0;">*尾款將於服務結束後收取</p><input type="text" id="transferLast5" placeholder="請輸入帳號末五碼" style="margin-top:10px;">`; document.getElementById('modal-actions').innerHTML = `<button class="btn-main btn-outline" style="flex:1;" onclick="closeModal()">取消</button><button class="btn-main btn-green" style="flex:1;" onclick="submitTransferBooking()">送出預約</button>`; }
-    function submitTransferBooking() { let last5 = document.getElementById('transferLast5').value; if(!last5) return alert("請輸入末五碼"); event.target.innerText = "處理中..."; event.target.disabled = true; let bookingData = { lineId: currentLineId, payerName: parentName, studentName: selectedStudentName, serviceName: allServices[selectedServiceIdx].name, price: finalDeposit, last5: last5, duration: selectedDuration, date: document.getElementById('dateSelect').value, time: selectedTime }; google.script.run.withSuccessHandler(res => { closeModal(); document.getElementById('success-title').innerText = "⏳ 收款確認中"; document.getElementById('success-title').style.color = "#f39c12"; document.getElementById('success-desc').innerHTML = "已收到轉帳回報，確認後將更新狀態。"; fillSuccessDetails(bookingData); document.getElementById('success-details').style.display = 'block'; document.getElementById('success-btn-group').innerHTML = `<button class="btn-main btn-green" onclick="switchPage('page-profile')">回會員中心</button>`; switchPage('page-success'); }).makeTransferReservation(bookingData); }
-    function doNormalBooking() { let btns = document.querySelectorAll('#modal-actions button'); btns.forEach(b => b.disabled = true); btns[1].innerText = "處理中..."; let bookingData = { lineId: currentLineId, payerName: parentName, studentName: selectedStudentName, serviceName: allServices[selectedServiceIdx].name, price: finalDeposit, duration: selectedDuration, date: document.getElementById('dateSelect').value, time: selectedTime }; google.script.run.withSuccessHandler(res => { closeModal(); parentBalance = res.newBalance; updateProfileUI({name:parentName, balance:parentBalance, level:document.getElementById('profileLevel').innerText, memberCode: document.getElementById('myMemberCode').getAttribute('data-code')}); document.getElementById('success-title').innerText = "🎉 預約成功！"; document.getElementById('success-title').style.color = "var(--primary)"; document.getElementById('success-desc').innerText = "訂金已扣除，期待與您相見。"; fillSuccessDetails(bookingData); document.getElementById('success-details').style.display = 'block'; document.getElementById('success-btn-group').innerHTML = `<button class="btn-main btn-green" onclick="switchPage('page-profile')">回會員中心</button>`; switchPage('page-success'); }).makeReservation(bookingData); }
-    function fillSuccessDetails(data) { safeSetText('sSvc', data.serviceName); safeSetText('sStu', data.studentName); safeSetText('sTime', `${data.date} ${data.time}`); safeSetText('sPrice', finalDeposit + " P"); }
-    function closeModal() { document.getElementById('custom-modal').style.display = 'none'; }
-    function safeSetText(id, text) { let el = document.getElementById(id); if(el) el.innerText = text; }
-    function handleBookingBack() { switchPage('page-profile'); }
-    function setupDefaultDate() { const now = new Date(); const offset = now.getTimezoneOffset(); const localDate = new Date(now.getTime() - (offset*60*1000)); let el = document.getElementById('dateSelect'); if(el) { el.value = localDate.toISOString().split('T')[0]; renderSlots(); } }
-    function loadServices() { google.script.run.withSuccessHandler(s => { allServices = s; const container = document.getElementById('service-list'); if(!container) return; container.innerHTML = ''; s.forEach((svc, idx) => { let div = document.createElement('div'); div.className = 'service-card'; div.innerHTML = `<span class="svc-name">${svc.name}</span><span class="svc-price">${svc.price} P</span>`; div.onclick = () => selectService(idx, div); container.appendChild(div); }); }).getServices(); }
-    function selectService(idx, el) { selectedServiceIdx = idx; document.querySelectorAll('.service-card').forEach(c => c.classList.remove('active')); el.classList.add('active'); calculateTotal(); }
-    function selectDuration(mins, el) { selectedDuration = mins; document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); calculateTotal(); }
-    function calculateTotal() { if (selectedServiceIdx === null) return; let base = parseInt(allServices[selectedServiceIdx].price); let mult = selectedDuration === 90 ? 1.5 : (selectedDuration === 120 ? 1.75 : 1); let fullPrice = Math.floor(base * mult / 100) * 100; let discountRate = 1; if (currentLevel === 'VIP2') discountRate = 0.95; else if (currentLevel === 'VIP3' || currentLevel === 'VIP4') discountRate = 0.90; let discountedPrice = Math.floor(fullPrice * discountRate); finalDeposit = Math.floor(discountedPrice / 3); let displayPrice = finalDeposit + " P"; if(discountRate < 1) displayPrice += ` <span style="font-size:12px; color:var(--red);">(${Math.round((1-discountRate)*100)}% off)</span>`; document.getElementById('depositPriceDisplay').innerHTML = displayPrice; let balEl = document.getElementById('currentBalanceDisplay'); if(balEl) { if (parentBalance < finalDeposit) balEl.style.color = "var(--red)"; else balEl.style.color = "#999"; } }
-    function renderSlots() { let d = document.getElementById('dateSelect').value; if(!d) return; const container = document.getElementById('slotsContainer'); if(!container) return; container.innerHTML = '<div style="grid-column:1/-1;text-align:center;">載入中...</div>'; google.script.run.withSuccessHandler(busyList => { container.innerHTML = ''; selectedTime = null; for(let h=9; h<22; h++) { for(let m=0; m<60; m+=30) { let timeStr = (h<10?'0'+h:h) + ':' + (m===0?'00':m); let isBusy = busyList.some(b => b.start === timeStr); let div = document.createElement('div'); div.className = 'time-slot'; div.innerText = timeStr; if(isBusy) div.classList.add('busy'); else { div.onclick = () => { document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected')); div.classList.add('selected'); selectedTime = timeStr; }; } container.appendChild(div); } } }).getBusySlots(d); }
-    function loadChildren() { google.script.run.withSuccessHandler(children => { myChildren = children; renderStudentOptions(); }).getChildren(currentLineId); }
-    function renderStudentOptions() { const container = document.getElementById('student-container'); if(!container) return; container.innerHTML = ''; container.appendChild(createBadge('本人', '本人', selectedStudentName === '本人')); myChildren.forEach(child => { container.appendChild(createBadge(child.name, child.name, selectedStudentName === child.name)); }); let addBtn = document.createElement('div'); addBtn.className = 'badge add'; addBtn.innerText = '+ 新增'; addBtn.onclick = () => { document.getElementById('new-student-form').style.display = 'block'; }; container.appendChild(addBtn); }
-    function createBadge(label, value, isActive) { let div = document.createElement('div'); div.className = 'badge' + (isActive ? ' active' : ''); div.innerText = label; div.onclick = () => selectStudent(value); return div; }
-    function selectStudent(name) { selectedStudentName = name; safeSetText('selectedStudentDisplay', name); document.getElementById('new-student-form').style.display = 'none'; renderStudentOptions(); }
-    function doRegister() { const name = document.getElementById('regName').value; const phone = document.getElementById('regPhone').value; const birth = document.getElementById('regBirth').value; const referrer = document.getElementById('regReferrer').value; if(!name || !phone || !birth) return alert("請輸入完整資料"); google.script.run.withSuccessHandler(res => { alert(res.message); parentName = res.name; parentBalance = parseInt(res.balance); updateProfileUI(res); if(SERVER_PAGE === 'booking') switchPage('page-booking'); else switchPage('page-profile'); }).registerNewMember({ lineId: currentLineId, name: name, phone: phone, birth: birth, referrerCode: referrer }); }
   </script>
 </body>
 </html>
