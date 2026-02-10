@@ -2,54 +2,155 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body { margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background-color: #f2f4f6; font-family: sans-serif; }
-    .loader { border: 4px solid #ddd; border-top: 4px solid #06c755; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
+    /* --- 1. 基礎設定 --- */
+    body, html {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background-color: #f2f4f6; font-family: sans-serif;
+      overflow: hidden; /* iOS 嵌入模式需要鎖定捲動 */
+    }
+
+    /* --- 2. 載入動畫 (通用) --- */
+    #loader {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 5;
+    }
+    .spinner {
+      border: 4px solid #ddd; border-top: 4px solid #06c755;
+      border-radius: 50%; width: 40px; height: 40px;
+      animation: spin 0.8s linear infinite; margin: 0 auto 15px auto;
+    }
+    .text { color: #888; font-size: 14px; font-weight: bold; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .text { color: #888; font-size: 14px; font-weight: bold; margin-bottom: 20px; }
-    #fallback-btn { display: none; padding: 12px 30px; background-color: #06c755; color: white; text-decoration: none; border-radius: 50px; font-size: 16px; box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3); font-weight: bold; }
+
+    /* --- 3. iOS 專用：遮罩容器 (隱藏 Google 橫幅) --- */
+    #ios-iframe-container {
+      position: absolute;
+      top: -56px;  /* ★ 關鍵：把 Google 橫幅往上推出去 */
+      left: 0;
+      width: 100%;
+      height: calc(100% + 56px); /* 補回高度 */
+      z-index: 10;
+      display: none; /* 預設隱藏 */
+      -webkit-overflow-scrolling: touch;
+    }
+    iframe { width: 100%; height: 100%; border: none; display: block; }
+
+    /* --- 4. Android 專用：救星按鈕 --- */
+    #android-fallback-btn {
+      display: none; margin-top: 20px;
+      padding: 12px 30px; background-color: #06c755; color: white;
+      text-decoration: none; border-radius: 50px; font-size: 16px;
+      box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3); font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <div class="loader"></div>
-  <div class="text" id="status-text">系統連線中...</div>
-  <a id="fallback-btn" href="#">點此進入系統</a>
+
+  <div id="loader">
+    <div class="spinner"></div>
+    <div class="text" id="status-text">系統連線中...</div>
+    <a id="android-fallback-btn" href="#">點此進入系統</a>
+  </div>
+
+  <div id="ios-iframe-container"></div>
+
   <script>
-    // ★★★ 請確認這邊填入正確的資訊 ★★★
+    // ★★★ 設定區 (請確認這裡是最新的 GAS 網址) ★★★
     const MY_LIFF_ID = "2009054335-tUPGk28q"; 
-    // 請填入您 GAS 部署的網址 (結尾是 /exec)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
-    window.onload = function() { initLiff(); };
+    window.onload = function() {
+       initLiff();
+    };
+
     async function initLiff() {
       try {
         await liff.init({ liffId: MY_LIFF_ID });
-        if (!liff.isLoggedIn()) { liff.login(); return; }
-        let userId = "", displayName = "Member", pictureUrl = "";
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        // 1. 抓取使用者資料
+        let userId = "";
+        let displayName = "Member";
+        let pictureUrl = "";
+
         try {
             const profile = await liff.getProfile();
-            userId = profile.userId; displayName = profile.displayName; pictureUrl = profile.pictureUrl;
+            userId = profile.userId;
+            displayName = profile.displayName;
+            pictureUrl = profile.pictureUrl;
         } catch (e) {
+            console.error("Profile Error", e);
             const user = liff.getDecodedIDToken();
-            if (user && user.sub) { userId = user.sub; displayName = user.name; pictureUrl = user.picture; }
+            if (user && user.sub) {
+                userId = user.sub;
+                displayName = user.name;
+                pictureUrl = user.picture;
+            }
         }
+
+        // 2. 準備參數
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
+
+        // 3. 組合目標網址 (帶入參數)
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
         
-        const fallbackBtn = document.getElementById('fallback-btn');
-        fallbackBtn.href = targetUrl;
-        document.getElementById('status-text').innerText = "正在進入...";
-        setTimeout(() => {
-           fallbackBtn.style.display = "inline-block";
-           document.getElementById('status-text').innerText = "若未自動跳轉，請點擊按鈕";
-        }, 1500);
-        if (liff.isInClient()) { window.location.replace(targetUrl); } else { window.location.href = targetUrl; }
+        // 4. ★★★ 核心分流邏輯 ★★★
+        const os = liff.getOS(); // 獲取作業系統 (ios, android, web)
+        console.log("User OS:", os);
+
+        if (os === "ios") {
+            // --- iOS 策略：使用 iframe 嵌入 (無廣告、體驗佳) ---
+            document.getElementById('status-text').innerText = "載入中 (iOS Mode)...";
+            
+            const container = document.getElementById('ios-iframe-container');
+            const iframe = document.createElement('iframe');
+            iframe.src = targetUrl;
+            
+            // 載入完成後隱藏轉圈圈
+            iframe.onload = function() {
+               document.getElementById('loader').style.display = 'none';
+            };
+            
+            container.appendChild(iframe);
+            container.style.display = 'block';
+
+        } else {
+            // --- Android/Web 策略：使用 Redirect 轉址 (穩定、有廣告但保證能用) ---
+            document.getElementById('status-text').innerText = "正在進入...";
+            
+            // 設定安全按鈕
+            const fallbackBtn = document.getElementById('android-fallback-btn');
+            fallbackBtn.href = targetUrl;
+            
+            // 1.5秒後若未跳轉，顯示按鈕
+            setTimeout(() => {
+               fallbackBtn.style.display = "inline-block";
+               document.getElementById('status-text').innerText = "若未自動跳轉，請點擊按鈕";
+            }, 1500);
+
+            // 執行跳轉
+            if (liff.isInClient()) {
+                window.location.replace(targetUrl);
+            } else {
+                window.location.href = targetUrl;
+            }
+        }
+
       } catch (err) {
         document.getElementById('status-text').innerText = "連線異常，請關閉重試";
+        console.error(err);
       }
     }
   </script>
