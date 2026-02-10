@@ -6,63 +6,83 @@
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* --- 1. 基礎設定 --- */
+    /* 基礎設定 */
     body, html {
       margin: 0; padding: 0;
       width: 100%; height: 100%;
-      background-color: #f2f4f6; font-family: sans-serif;
-      overflow: hidden; /* iOS 嵌入模式需要鎖定捲動 */
+      background-color: #f2f4f6; font-family: "Noto Sans TC", sans-serif;
+      overflow: hidden;
     }
 
-    /* --- 2. 載入動畫 (通用) --- */
+    /* iOS 專用容器 */
+    #ios-iframe-container {
+      position: absolute; top: -56px; left: 0;
+      width: 100%; height: calc(100% + 56px);
+      z-index: 10; display: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    iframe { width: 100%; height: 100%; border: none; display: block; }
+
+    /* Android 專用歡迎畫面 */
+    #android-welcome-screen {
+      display: none; /* 預設隱藏，Android 才會顯示 */
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #f2f4f6;
+      flex-direction: column; align-items: center; justify-content: center;
+      z-index: 20;
+    }
+    
+    .card {
+      background: white; padding: 30px; border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      text-align: center; max-width: 80%; width: 300px;
+    }
+    
+    .logo-icon { font-size: 50px; margin-bottom: 20px; display: block; }
+    
+    .enter-btn {
+      display: block; width: 100%; padding: 15px 0;
+      background: #06c755; color: white; font-weight: bold; font-size: 18px;
+      border-radius: 50px; text-decoration: none;
+      box-shadow: 0 5px 15px rgba(6, 199, 85, 0.3);
+      transition: transform 0.1s; border: none; cursor: pointer;
+    }
+    .enter-btn:active { transform: scale(0.95); }
+
+    /* 載入動畫 */
     #loader {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      z-index: 5;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center; z-index: 5;
     }
     .spinner {
       border: 4px solid #ddd; border-top: 4px solid #06c755;
       border-radius: 50%; width: 40px; height: 40px;
       animation: spin 0.8s linear infinite; margin: 0 auto 15px auto;
     }
-    .text { color: #888; font-size: 14px; font-weight: bold; }
+    .loading-text { color: #888; font-size: 14px; font-weight: bold; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    /* --- 3. iOS 專用：遮罩容器 (隱藏 Google 橫幅) --- */
-    #ios-iframe-container {
-      position: absolute;
-      top: -56px;  /* ★ 關鍵：把 Google 橫幅往上推出去 */
-      left: 0;
-      width: 100%;
-      height: calc(100% + 56px); /* 補回高度 */
-      z-index: 10;
-      display: none; /* 預設隱藏 */
-      -webkit-overflow-scrolling: touch;
-    }
-    iframe { width: 100%; height: 100%; border: none; display: block; }
-
-    /* --- 4. Android 專用：救星按鈕 --- */
-    #android-fallback-btn {
-      display: none; margin-top: 20px;
-      padding: 12px 30px; background-color: #06c755; color: white;
-      text-decoration: none; border-radius: 50px; font-size: 16px;
-      box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3); font-weight: bold;
-    }
   </style>
 </head>
 <body>
 
   <div id="loader">
     <div class="spinner"></div>
-    <div class="text" id="status-text">系統連線中...</div>
-    <a id="android-fallback-btn" href="#">點此進入系統</a>
+    <div class="loading-text">系統連線中...</div>
   </div>
 
   <div id="ios-iframe-container"></div>
 
+  <div id="android-welcome-screen">
+    <div class="card">
+      <span class="logo-icon">👋</span>
+      <h2 style="color:#333; margin:0 0 10px 0;">歡迎回來</h2>
+      <p style="color:#666; font-size:14px; margin:0 0 25px 0;">系統已準備就緒</p>
+      <button id="btn-enter" class="enter-btn">進入會員系統</button>
+    </div>
+  </div>
+
   <script>
-    // ★★★ 設定區 (請確認這裡是最新的 GAS 網址) ★★★
+    // ★★★ 設定區 ★★★
     const MY_LIFF_ID = "2009054335-tUPGk28q"; 
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
 
@@ -79,7 +99,7 @@
           return;
         }
 
-        // 1. 抓取使用者資料
+        // 1. 抓取資料
         let userId = "";
         let displayName = "Member";
         let pictureUrl = "";
@@ -90,7 +110,6 @@
             displayName = profile.displayName;
             pictureUrl = profile.pictureUrl;
         } catch (e) {
-            console.error("Profile Error", e);
             const user = liff.getDecodedIDToken();
             if (user && user.sub) {
                 userId = user.sub;
@@ -99,57 +118,45 @@
             }
         }
 
-        // 2. 準備參數
+        // 2. 準備參數與目標網址
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page') || 'profile';
-
-        // 3. 組合目標網址 (帶入參數)
         const targetUrl = `${GAS_URL}?uid=${userId}&page=${page}&name=${encodeURIComponent(displayName)}&pic=${encodeURIComponent(pictureUrl)}`;
         
-        // 4. ★★★ 核心分流邏輯 ★★★
-        const os = liff.getOS(); // 獲取作業系統 (ios, android, web)
-        console.log("User OS:", os);
+        // 3. 隱藏載入動畫
+        document.getElementById('loader').style.display = 'none';
 
+        // 4. 分流邏輯
+        const os = liff.getOS();
+        
         if (os === "ios") {
-            // --- iOS 策略：使用 iframe 嵌入 (無廣告、體驗佳) ---
-            document.getElementById('status-text').innerText = "載入中 (iOS Mode)...";
-            
+            // --- iOS: 自動嵌入 ---
             const container = document.getElementById('ios-iframe-container');
             const iframe = document.createElement('iframe');
             iframe.src = targetUrl;
-            
-            // 載入完成後隱藏轉圈圈
-            iframe.onload = function() {
-               document.getElementById('loader').style.display = 'none';
-            };
-            
             container.appendChild(iframe);
             container.style.display = 'block';
-
         } else {
-            // --- Android/Web 策略：使用 Redirect 轉址 (穩定、有廣告但保證能用) ---
-            document.getElementById('status-text').innerText = "正在進入...";
+            // --- Android: 顯示歡迎卡片，手動點擊進入 ---
+            const screen = document.getElementById('android-welcome-screen');
+            const btn = document.getElementById('btn-enter');
             
-            // 設定安全按鈕
-            const fallbackBtn = document.getElementById('android-fallback-btn');
-            fallbackBtn.href = targetUrl;
+            screen.style.display = 'flex'; // 顯示卡片
             
-            // 1.5秒後若未跳轉，顯示按鈕
-            setTimeout(() => {
-               fallbackBtn.style.display = "inline-block";
-               document.getElementById('status-text').innerText = "若未自動跳轉，請點擊按鈕";
-            }, 1500);
-
-            // 執行跳轉
-            if (liff.isInClient()) {
-                window.location.replace(targetUrl);
-            } else {
-                window.location.href = targetUrl;
-            }
+            // 綁定按鈕事件 (使用者主動點擊 -> 100% 成功)
+            btn.onclick = function() {
+               btn.innerText = "進入中...";
+               btn.style.opacity = "0.7";
+               if (liff.isInClient()) {
+                   window.location.replace(targetUrl);
+               } else {
+                   window.location.href = targetUrl;
+               }
+            };
         }
 
       } catch (err) {
-        document.getElementById('status-text').innerText = "連線異常，請關閉重試";
+        document.querySelector('.loading-text').innerText = "連線異常，請重試";
         console.error(err);
       }
     }
