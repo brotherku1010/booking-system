@@ -55,13 +55,14 @@
 
     async function initLiff() {
       try {
+        // 部分 LIFF 版本會在 init 後整理網址參數，先保存回呼來源。
+        const incomingLiffState = new URLSearchParams(window.location.search).get('liff.state') || '';
         await liff.init({ liffId: MY_LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login(); return; }
 
         // LIFF 的 Endpoint 設在 GitHub Pages 根目錄；Provider PWA 登入完成時，
         // LINE 會以 liff.state=/provider/ 回到這裡。先回送至師資 PWA，避免誤進會員系統。
-        const liffState = new URLSearchParams(window.location.search).get('liff.state') || '';
-        if (/^\/provider(?:\/|$)/.test(liffState)) {
+        if (/^\/provider(?:\/|$)/.test(incomingLiffState)) {
           window.location.replace(new URL('./provider/', window.location.href).toString());
           return;
         }
