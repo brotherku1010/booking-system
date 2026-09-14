@@ -47,74 +47,7 @@
     <a href="#" id="btn-manual-enter" class="btn-fallback">進入會員系統</a>
   </div>
 
-  <script>
-    const MY_LIFF_ID = "2009054335-tUPGk28q"; 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxu_ke2CmB51jhdgOP05yb6mBfqwdAIPUQL_IfHmmXwlzaDH3sModbISVHiHUgZToBeWg/exec"; 
-
-    window.onload = function() { initLiff(); };
-
-    async function initLiff() {
-      try {
-        // 部分 LIFF 版本會在 init 後整理網址參數，先保存回呼來源。
-        const incomingLiffState = new URLSearchParams(window.location.search).get('liff.state') || '';
-        await liff.init({ liffId: MY_LIFF_ID });
-        if (!liff.isLoggedIn()) { liff.login(); return; }
-
-        // LIFF 的 Endpoint 設在 GitHub Pages 根目錄；Provider PWA 登入完成時，
-        // LINE 會以 liff.state=/provider/ 回到這裡。先回送至師資 PWA，避免誤進會員系統。
-        if (/^\/provider(?:\/|$)/.test(incomingLiffState)) {
-          window.location.replace(new URL('./provider/', window.location.href).toString());
-          return;
-        }
-
-        // 1. 取得資料
-        const profile = await liff.getProfile().catch(() => ({ userId: liff.getDecodedIDToken().sub, displayName: "Member", pictureUrl: "" }));
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // 2. 準備目標網址
-        let targetUrl = `${GAS_URL}?uid=${profile.userId}&page=${urlParams.get('page')||'profile'}&name=${encodeURIComponent(profile.displayName)}&pic=${encodeURIComponent(profile.pictureUrl)}`;
-        
-        const os = liff.getOS();
-
-        if (os === "ios") {
-            // --- iOS: 繼續使用 iframe 嵌入 (隱藏載入文字) ---
-            document.getElementById('loader').style.display = 'none';
-            
-            targetUrl += "&os=ios"; 
-            const iframe = document.createElement('iframe');
-            iframe.src = targetUrl;
-            document.getElementById('ios-container').appendChild(iframe);
-            document.getElementById('ios-container').style.display = 'block';
-
-        } else {
-            // --- Android: 自動轉跳優先 ---
-            document.getElementById('status-text').innerText = "正在進入系統...";
-            
-            // 設定手動按鈕的連結 (以防萬一)
-            const fallbackBtn = document.getElementById('btn-manual-enter');
-            fallbackBtn.onclick = () => {
-                 if (liff.isInClient()) window.location.replace(targetUrl);
-                 else window.location.href = targetUrl;
-            };
-
-            // ★ 核心邏輯：立即執行轉跳 ★
-            if (liff.isInClient()) {
-                window.location.replace(targetUrl);
-            } else {
-                window.location.href = targetUrl;
-            }
-
-            // ★ 保險機制：如果 2.5 秒後還停留在這裡 (代表卡住了)，才顯示按鈕 ★
-            setTimeout(() => {
-               document.getElementById('android-fallback-container').style.display = 'block';
-               document.getElementById('status-text').innerText = "連線回應較慢";
-            }, 2500);
-        }
-
-      } catch (err) {
-        document.getElementById('status-text').innerText = "連線異常，請重新整理";
-      }
-    }
-  </script>
+  <script src="./secure-bridge.js?v=20260914-auth-v2"></script>
+  <script src="./secure-member.js?v=20260914-auth-v2"></script>
 </body>
 </html>
