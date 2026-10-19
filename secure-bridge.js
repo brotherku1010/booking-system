@@ -17,12 +17,13 @@
    const timer=setTimeout(()=>{clean();reject(new Error('驗證連線逾時，請重新登入。'));},45000);
    window.addEventListener('message',receive);frame.src=url.toString();document.body.append(frame);
   });},
-  connectApp(gasUrl,frame,profile,onExpired){
+  connectApp(gasUrl,frame,profile,onExpired,onLogout){
    const channel=nonce(),url=new URL(gasUrl);url.searchParams.set('auth_channel',channel);frame.referrerPolicy='no-referrer';
    let source=null;
    const receive=event=>{const data=event.data;if(!googleOrigin(event.origin)||!data||data.channel!==channel)return;
     if(data.type==='gugo-app-ready'&&!source){source=event.source;source.postMessage({type:'gugo-app-session',channel,sessionToken:profile.sessionToken},event.origin);}
     if(data.type==='gugo-auth-expired'&&event.source===source){onExpired&&onExpired();}
+    if(data.type==='gugo-member-logout'&&event.source===source){onLogout&&onLogout();}
    };
    window.addEventListener('message',receive);frame.src=url.toString();return ()=>window.removeEventListener('message',receive);
   }
