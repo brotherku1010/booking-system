@@ -2,29 +2,15 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <title>會員系統</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #101019; overflow: hidden; font-family: sans-serif; color-scheme: dark; }
-    
-    /* iOS 去廣告容器 */
-    #ios-container { position: absolute; top: -56px; left: 0; width: 100%; height: calc(100% + 56px); z-index: 10; display: none; -webkit-overflow-scrolling: touch; }
-    iframe { width: 100%; height: 100%; border: none; }
 
-    /* Android 手動按鈕容器 (預設隱藏，卡住才顯示) */
-    #android-fallback-container { 
-      display: none; 
-      position: absolute; bottom: 50px; left: 0; width: 100%; 
-      text-align: center; z-index: 20;
-      animation: fadeIn 0.5s ease-in;
-    }
-    .btn-fallback { 
-      display: inline-block; padding: 12px 30px; 
-      background: #06c755; color: white; font-weight: bold; border-radius: 50px; 
-      text-decoration: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
-    }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    /* 保留歷史 ID；所有平台共用，由 visualViewport 避讓 Android 鍵盤。 */
+    #ios-container { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 10; display: none; -webkit-overflow-scrolling: touch; }
+    iframe { width: 100%; height: 100%; border: none; }
 
     /* 載入動畫 */
     #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 5; }
@@ -34,26 +20,23 @@
     .loading-text { color: #f3f1fa; font-size: 1.125rem; font-weight: bold; line-height: 1.6; }
     #line-login-button { margin-top: 1.25rem; border: 0; background: #06a947; color: white; padding: .9rem 1.5rem; border-radius: 1rem; min-height: 48px; font: inherit; font-weight: 700; cursor: pointer; }
     #line-login-button:focus-visible { outline: 3px solid #173a67; outline-offset: 4px; }
+    #login-help { margin:1rem 0 0;color:#c3bfce;font-size:.8125rem;line-height:1.65;overflow-wrap:anywhere; }
     @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  
+
   <div id="loader">
     <div class="spinner"></div>
-    <div class="loading-text" id="status-text">系統啟動中...</div>
+    <div class="loading-text" id="status-text" role="status" aria-live="polite">系統啟動中...</div>
     <button type="button" id="line-login-button" hidden>使用 LINE 登入</button>
+    <p id="login-help">完成 LINE 授權後請回到此頁。若 LINE 內無法載入，可改用手機預設瀏覽器；若希望保留登入，請使用一般瀏覽模式。</p>
   </div>
 
   <div id="ios-container"></div>
 
-  <div id="android-fallback-container">
-    <p style="color:#666; font-size:12px; margin-bottom:10px;">若未自動跳轉，請點擊按鈕</p>
-    <a href="#" id="btn-manual-enter" class="btn-fallback">進入會員系統</a>
-  </div>
-
-  <script src="./secure-bridge.js?v=20261019-member-v3"></script>
-  <script src="./secure-member.js?v=20261019-member-v3"></script>
+  <script src="./secure-bridge.js?v=20261030-android-member-v4"></script>
+  <script src="./secure-member.js?v=20261030-android-member-v4"></script>
 </body>
 </html>
